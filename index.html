@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>EcoTrack GO</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--bg:#0f172a;--panel:#1e293b;--panel2:#26344b;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--green:#10b981;--green2:#059669;--amber:#f59e0b;--red:#ef4444;--blue:#38bdf8;--purple:#a78bfa}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:radial-gradient(circle at 30% 20%,#1e293b,#020617 70%);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",Roboto,sans-serif;color:var(--text);display:flex;align-items:center;justify-content:center;overflow:hidden}
+button{font-family:inherit;color:inherit;border:0;cursor:pointer;background:none}
+button:disabled{opacity:.4;cursor:not-allowed}
+svg{display:block}
+.app{position:relative;width:100%;max-width:414px;height:850px;max-height:100vh;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;border-radius:28px;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px #1e293b}
+@media(max-width:430px){.app{border-radius:0;height:100vh;height:100dvh;max-height:none}}
+
+.titlebar{height:44px;flex:none;display:flex;align-items:center;justify-content:center;position:relative;font-weight:700;font-size:16px;letter-spacing:.3px}
+.titlebar .logo{color:var(--green)}
+.capsule{position:absolute;right:10px;top:7px;height:30px;display:flex;align-items:center;border:1px solid #475569;border-radius:16px;background:rgba(30,41,59,.85);overflow:hidden}
+.capsule button{width:42px;height:30px;font-size:14px;font-weight:900;letter-spacing:1px}
+.capsule i{width:1px;height:16px;background:#475569}
+.intense-badge{position:absolute;left:10px;top:10px;font-size:11px;font-weight:800;padding:4px 8px;border-radius:12px;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#111;display:none;animation:pulse 1.2s infinite}
+.intense-badge.on{display:block}
+
+.hud{display:flex;gap:8px;padding:0 10px 8px;flex:none}
+.stat{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:7px 9px;min-width:0}
+.stat .lbl{font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap}
+.stat .val{font-size:17px;font-weight:800;margin-top:2px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.stat.hero{flex:1.55;background:linear-gradient(135deg,#047857,#10b981);border-color:#34d399;box-shadow:0 6px 18px rgba(16,185,129,.35)}
+.stat.hero .lbl{color:#d1fae5}
+.stat.hero .val{font-size:22px;color:#fff}
+.stat.hero .val small{font-size:12px;font-weight:700;opacity:.85}
+.stat.coin .val{color:var(--amber)}
+.stat.streak .val{color:#fb923c}
+.bump{animation:bump .35s}
+@keyframes bump{50%{transform:scale(1.12)}}
+
+.strip{flex:none;margin:0 10px 6px;border-radius:10px;padding:6px 10px;font-size:11.5px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap;border:1px solid}
+.strip.ok{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4);color:#6ee7b7}
+.strip.transit{background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.45);color:#7dd3fc}
+.strip.bad{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.6);color:#fca5a5;animation:flash 1s infinite}
+.strip.idle{background:rgba(148,163,184,.1);border-color:#475569;color:var(--muted)}
+.strip .main{flex:1;min-width:0}
+.chip{font-size:10.5px;padding:2px 7px;border-radius:9px;background:rgba(15,23,42,.6);border:1px solid var(--line);color:var(--text);white-space:nowrap}
+@keyframes flash{50%{background:rgba(239,68,68,.32)}}
+
+.views{flex:1;position:relative;min-height:0}
+.view{position:absolute;inset:0;display:none;overflow-y:auto;overflow-x:hidden}
+.view.active{display:block}
+.view.pad{padding:6px 12px 20px}
+#view-map{overflow:hidden}
+#map{position:absolute;inset:0;background:#0b1222}
+.leaflet-container{background:#0b1222;font-family:inherit}
+.osm-dark{filter:invert(1) hue-rotate(180deg) brightness(.95) contrast(1) saturate(.8)}
+.leaflet-control-attribution{font-size:9px!important;background:rgba(15,23,42,.7)!important;color:#94a3b8!important}
+.leaflet-control-attribution a{color:#cbd5e1!important}
+.ovl{position:absolute;z-index:500}
+.nearby{top:8px;left:8px;right:8px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.nearby::-webkit-scrollbar{display:none}
+.nb{flex:none;background:rgba(15,23,42,.85);border:1px solid var(--line);border-radius:18px;padding:2px 10px 2px 3px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px;backdrop-filter:blur(4px)}
+.nb b{color:var(--amber);font-weight:800}
+.nb.near{border-color:var(--amber)}
+.pill{background:rgba(15,23,42,.88);border:1px solid var(--line);border-radius:12px;padding:5px 9px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px;max-width:62%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gpspill{top:46px;left:8px}
+.habpill{top:78px;left:8px;color:#fde68a}
+.gpspill .dot{width:8px;height:8px;border-radius:50%;background:#64748b;flex:none}
+.gpspill.live .dot{background:var(--green);box-shadow:0 0 0 0 rgba(16,185,129,.7);animation:ping 1.5s infinite}
+.gpspill.sim .dot{background:var(--purple)}
+.gpspill.bad .dot{background:var(--red)}
+@keyframes ping{70%{box-shadow:0 0 0 8px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
+.provider{top:46px;right:8px;background:rgba(15,23,42,.88);border:1px solid var(--line);border-radius:12px;padding:5px 9px;font-size:10.5px;font-weight:700;color:var(--muted)}
+.carflag{top:110px;left:12px;right:12px;background:rgba(127,29,29,.94);border:1px solid var(--red);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:700;color:#fecaca;display:none;text-align:center}
+.carflag.on{display:block}
+.gate{inset:0;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(2,6,23,.72);backdrop-filter:blur(2px)}
+.gate.on{display:flex}
+.gate .card{text-align:center;max-width:320px}
+.gate .card .e{font-size:44px;display:block;margin-bottom:6px}
+.recenter{right:10px;bottom:30px;width:46px;height:46px;border-radius:50%;background:rgba(15,23,42,.9);border:1px solid #475569;font-size:20px}
+.recenter.on{border-color:var(--green);color:var(--green)}
+.simpad{left:10px;bottom:24px;display:none;flex-direction:column;align-items:center;gap:4px}
+.simpad.on{display:flex}
+.simpad .tag{background:var(--purple);color:#111}
+.dpad{display:grid;grid-template-columns:repeat(3,40px);grid-template-rows:repeat(3,40px);gap:3px}
+.dpad button{background:rgba(46,16,101,.85);border:1px solid #7c3aed;border-radius:10px;font-size:14px;font-weight:900;color:#ddd6fe}
+.dpad button:active{background:#7c3aed}
+.dpad .c{background:transparent;border:0}
+.coinfloat{position:absolute;left:50%;top:44%;transform:translateX(-50%);z-index:600;font-weight:900;font-size:16px;color:#fbbf24;text-shadow:0 2px 0 #000,0 0 6px #000;pointer-events:none;animation:rise 1.1s forwards;white-space:nowrap}
+
+/* map markers */
+.mk{position:absolute;left:0;top:0;width:0;height:0}
+.mk .in{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center}
+.pmk{width:46px;height:46px}
+.pav{width:42px;height:42px;border-radius:50%;background:#10b981;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.5);position:relative;z-index:2;overflow:hidden}
+.pmk.intense .pav{background:#f59e0b;animation:pulse 1s infinite}
+.parrow{position:absolute;inset:-14px;transition:transform .4s}
+.parrow::before{content:'';position:absolute;left:50%;top:0;margin-left:-8px;border:8px solid transparent;border-bottom:13px solid #10b981;border-top:0}
+.wmk{width:58px;height:58px;cursor:pointer;pointer-events:auto}
+.wring{position:absolute;inset:4px;border-radius:50%;border:3px solid var(--c);animation:aura 1.6s infinite}
+.wem{animation:bob 1.4s ease-in-out infinite;filter:drop-shadow(0 4px 3px rgba(0,0,0,.5))}
+.wbadge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:10.5px;font-weight:800;background:rgba(15,23,42,.92);border-radius:8px;padding:1px 6px;white-space:nowrap;color:#e2e8f0}
+.wmk.near .wbadge{background:#f59e0b;color:#111}
+.whab{position:absolute;bottom:-4px;right:-2px;font-size:13px}
+
+.btn{border-radius:12px;padding:10px 14px;font-weight:800;font-size:13px;background:var(--panel2);border:1px solid var(--line);transition:transform .1s}
+.btn:active:not(:disabled){transform:scale(.96)}
+.btn.g{background:linear-gradient(135deg,#059669,#10b981);border-color:#34d399;color:#fff}
+.btn.a{background:linear-gradient(135deg,#d97706,#f59e0b);border-color:#fbbf24;color:#111}
+.btn.r{background:linear-gradient(135deg,#b91c1c,#ef4444);border-color:#f87171;color:#fff}
+.btn.b{background:linear-gradient(135deg,#0369a1,#0ea5e9);border-color:#38bdf8;color:#fff}
+.btn.p{background:linear-gradient(135deg,#6d28d9,#a78bfa);border-color:#c4b5fd;color:#fff}
+.btn.sm{padding:6px 10px;font-size:12px;border-radius:9px}
+.btn.full{width:100%}
+
+.nav{flex:none;height:74px;background:#0b1222;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;padding:0 4px;position:relative;z-index:5}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;font-weight:700;color:var(--muted);width:60px}
+.nav button .ic{width:40px;height:40px;border-radius:50%;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:18px;transition:.2s}
+.nav button.on{color:var(--green)}
+.nav button.on .ic{background:rgba(16,185,129,.18);border-color:var(--green)}
+.nav .shop{position:relative;top:-18px}
+.nav .shop .ic{width:66px;height:66px;font-size:26px;background:linear-gradient(135deg,#f59e0b,#10b981);border:4px solid #0b1222;box-shadow:0 8px 22px rgba(245,158,11,.45)}
+.nav .shop span{color:var(--amber);font-weight:900;letter-spacing:.5px}
+
+h2{font-size:18px;margin:6px 0 2px}
+h3{font-size:14px;margin:16px 0 8px;color:#cbd5e1;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sub{font-size:12px;color:var(--muted);line-height:1.45}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+.row{display:flex;align-items:center;gap:10px}
+.row .grow{flex:1;min-width:0}
+.big-ic{font-size:30px;width:46px;height:46px;border-radius:12px;background:var(--panel2);display:flex;align-items:center;justify-content:center;flex:none}
+.title{font-weight:800;font-size:14px}
+.price{color:var(--amber);font-weight:800}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tag{display:inline-block;font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;background:var(--panel2);color:var(--muted)}
+.tb{display:inline-block;font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;color:#0f172a;white-space:nowrap}
+.r-Starter{color:#cbd5e1}.r-Common{color:#a7f3d0}.r-Uncommon{color:#bef264}.r-Rare{color:#7dd3fc}.r-Epic{color:#c4b5fd}.r-Legendary,.r-Mythic{color:#fbbf24}
+.skin{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:8px 4px;text-align:center;font-size:10.5px;font-weight:700;position:relative}
+.skin .e{display:flex;justify-content:center;margin-bottom:2px;font-size:20px}
+.skin.locked .e svg{filter:grayscale(1) brightness(.45)}
+.skin.eq{border-color:var(--green);box-shadow:0 0 0 1px var(--green) inset}
+.crate{text-align:center}
+.crate .ci{font-size:42px;display:block;margin:4px 0}
+.odds{font-size:10px;color:var(--muted);margin:6px 0 8px;line-height:1.5}
+.voucher{display:flex;align-items:center;gap:10px;background:repeating-linear-gradient(90deg,var(--panel2) 0 10px,#2b3a53 10px 20px);border:1px dashed #64748b;border-radius:12px;padding:10px;margin-bottom:8px}
+.code{font-family:ui-monospace,Menlo,monospace;font-weight:800;color:var(--green);font-size:13px;letter-spacing:1px}
+.empty{text-align:center;color:var(--muted);font-size:12px;padding:14px}
+
+.mon{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;text-align:center;position:relative}
+.mon .art{display:flex;justify-content:center;margin:-2px 0 2px}
+.mon.champ{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
+.mon .crown{position:absolute;top:6px;right:8px;font-size:14px}
+.xpbar{height:5px;background:#0f172a;border-radius:3px;overflow:hidden;margin:4px 0}
+.xpbar i{display:block;height:100%;background:linear-gradient(90deg,#a78bfa,#38bdf8)}
+.statline{font-size:10.5px;color:var(--muted);font-weight:700;display:flex;justify-content:center;gap:8px;margin-top:2px}
+.dex{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.dex div{background:var(--panel2);border-radius:10px;padding:4px 2px;text-align:center;font-size:9.5px;color:var(--muted);display:flex;flex-direction:column;align-items:center}
+.dex div.unseen svg{filter:brightness(0);opacity:.45}
+.market .row{align-items:center}
+
+.rivalcard{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#3b0764,#1e293b);border:1px solid #6b21a8;border-radius:14px;padding:6px 10px;margin-top:10px}
+.stage{background:linear-gradient(180deg,#1e1b4b,#312e81 55%,#14532d 56%,#166534);border-radius:16px;padding:14px;position:relative;height:230px;overflow:hidden;border:1px solid #4338ca}
+.fighter{position:absolute;text-align:center;width:160px;display:flex;flex-direction:column;align-items:center}
+.fighter .e{transition:transform .2s}
+.fighter.rival{top:4px;right:6px}
+.fighter.mine{bottom:6px;left:6px}
+.fighter .nm{font-size:11px;font-weight:800;background:rgba(15,23,42,.8);border-radius:8px;padding:3px 6px;display:inline-block;white-space:nowrap}
+.hp{height:7px;width:130px;background:#0f172a;border-radius:4px;overflow:hidden;margin-top:4px}
+.hp i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#84cc16);transition:width .4s}
+.hp.low i{background:linear-gradient(90deg,#ef4444,#f97316)}
+.buffs{position:absolute;left:12px;top:12px;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.buffs span{font-size:11px;font-weight:800;background:rgba(15,23,42,.8);border:1px solid var(--amber);border-radius:8px;padding:2px 6px}
+.hit{animation:hit .5s}
+@keyframes hit{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.dmgpop{position:absolute;font-weight:900;font-size:22px;color:#fde047;text-shadow:0 2px 0 #000;animation:rise 1s forwards;pointer-events:none}
+.dmgpop.heal{color:#86efac}
+@keyframes rise{to{transform:translate(-50%,-40px);opacity:0}}
+.turnbox{display:flex;gap:8px;margin:10px 0}
+.turnbox .card{flex:1;margin:0;text-align:center;padding:8px}
+.turnbox .v{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
+.pace{border-radius:10px;padding:7px 10px;font-size:12px;font-weight:800;text-align:center;border:1px solid var(--line);background:var(--panel)}
+.pace.still{border-color:#ef4444;color:#fca5a5}.pace.walk{border-color:#f59e0b;color:#fde68a}.pace.run{border-color:#10b981;color:#6ee7b7}
+.potion{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:7px 2px;text-align:center;font-size:10px;font-weight:700;position:relative}
+.potion .pi{font-size:22px;display:block}
+.potion .n{position:absolute;top:3px;right:5px;font-size:10px;font-weight:900;color:var(--amber)}
+.potion.used{border-color:var(--amber);background:rgba(245,158,11,.15)}
+.log{font-size:11.5px;color:var(--muted);max-height:140px;overflow-y:auto;line-height:1.6}
+.log b{color:var(--text)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.pick{flex:none;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:3px 10px 3px 3px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px}
+.pick.on{border-color:var(--amber);color:var(--amber)}
+.livegps{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.4);border-radius:10px;padding:7px 10px;font-size:12px;font-weight:700;color:#6ee7b7;text-align:center}
+.simrow{display:none;gap:8px;margin-top:8px}
+.simrow.on{display:grid;grid-template-columns:1fr 1fr}
+
+.scrim{position:absolute;inset:0;background:rgba(2,6,23,.6);opacity:0;pointer-events:none;transition:.3s;z-index:1000}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:88%;background:#0b1222;border-left:1px solid var(--line);transform:translateX(100%);transition:transform .32s cubic-bezier(.2,.8,.2,1);z-index:1001;display:flex;flex-direction:column}
+.drawer.on{transform:none}
+.dhead{padding:16px 14px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.dhead .av{width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#047857,#10b981);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.dbody{flex:1;overflow-y:auto;padding:10px 12px 30px}
+.acc{border:1px solid var(--line);border-radius:14px;margin-bottom:10px;background:var(--panel);overflow:hidden}
+.acc>button{width:100%;text-align:left;padding:12px;font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px}
+.acc>button::after{content:'›';margin-left:auto;font-size:20px;transition:.2s;color:var(--muted)}
+.acc.open>button::after{transform:rotate(90deg)}
+.acc .in{display:none;padding:0 12px 12px}
+.acc.open .in{display:block}
+.lb{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #1f2b3f;font-size:12.5px}
+.lb .rk{width:22px;font-weight:900;color:var(--muted);text-align:center}
+.lb.me{background:rgba(16,185,129,.12);border-radius:8px}
+.seg{display:flex;background:var(--panel2);border-radius:10px;padding:3px;margin-bottom:8px}
+.seg button{flex:1;padding:6px;border-radius:8px;font-size:12px;font-weight:700;color:var(--muted)}
+.seg button.on{background:var(--green2);color:#fff}
+input[type=range]{width:100%;accent-color:var(--purple)}
+input[type=text],input[type=password]{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:var(--text);font-size:13px}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.speedval{font-size:26px;font-weight:900;font-variant-numeric:tabular-nums}
+.toggle{width:46px;height:26px;border-radius:13px;background:#475569;position:relative;transition:.2s;flex:none}
+.toggle::after{content:'';position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+.toggle.on{background:var(--green)}
+.toggle.on::after{left:23px}
+.bio{display:flex;gap:8px;margin-top:8px}
+.bio div{flex:1;background:var(--panel2);border-radius:10px;padding:8px;text-align:center}
+.bio b{font-size:20px;display:block;font-variant-numeric:tabular-nums}
+.bio .hr{color:#f87171}
+.ride{font-size:11.5px;padding:5px 0;border-bottom:1px solid #1f2b3f;display:flex;gap:6px}
+.ride span:last-child{margin-left:auto;color:var(--muted)}
+.simonly{opacity:.45;pointer-events:none}
+.simonly.on{opacity:1;pointer-events:auto}
+
+.modal{position:absolute;inset:0;background:rgba(2,6,23,.82);z-index:1100;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px)}
+.modal.on{display:flex}
+.mbox{background:var(--panel);border:1px solid var(--line);border-radius:20px;width:100%;max-height:100%;overflow-y:auto;padding:16px;animation:pop .25s}
+@keyframes pop{from{transform:scale(.9);opacity:0}}
+.enc{background:linear-gradient(180deg,#064e3b 0%,#0f172a 60%);border-color:#10b981}
+.enc-top{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800}
+.timer{font-size:22px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--amber)}
+.timer.low{color:var(--red);animation:pulse .6s infinite}
+.tbar{height:5px;background:#0f172a;border-radius:3px;overflow:hidden;margin:6px 0 4px}
+.tbar i{display:block;height:100%;background:var(--amber);transition:width .1s linear}
+.arena-enc{height:170px;position:relative;display:flex;align-items:center;justify-content:center}
+.aura{position:absolute;width:150px;height:150px;border-radius:50%;animation:aura 1.6s infinite}
+@keyframes aura{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.4);opacity:0}}
+.wild{position:relative;animation:bob 1.4s ease-in-out infinite;transition:transform .3s,opacity .3s}
+@keyframes bob{50%{transform:translateY(-8px)}}
+.wild.gone{transform:scale(0)!important;opacity:0;animation:none}
+.hearts{position:absolute;top:20px;left:50%;font-size:20px;animation:rise 1.4s forwards}
+.ball{position:absolute;bottom:-10px;left:50%;margin-left:-18px;display:none;width:36px;height:36px}
+.ball.throw{display:block;animation:throw .6s ease-out forwards}
+.ball.shake{display:block;bottom:65px;animation:shake .6s 3}
+@keyframes throw{0%{bottom:-10px;transform:scale(1.4) rotate(0)}100%{bottom:65px;transform:scale(1) rotate(720deg)}}
+@keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-25deg)}75%{transform:rotate(25deg)}}
+.stars{position:absolute;font-size:26px;display:none;animation:pulse .8s infinite}
+.steps{display:flex;gap:6px;margin:6px 0 10px}
+.steps div{flex:1;font-size:10.5px;font-weight:700;padding:6px 4px;border-radius:9px;background:#0f172a;border:1px solid var(--line);text-align:center;color:var(--muted)}
+.steps div.done{border-color:var(--green);color:#6ee7b7}
+.steps div.cur{border-color:var(--amber);color:var(--amber)}
+.pbar{height:14px;background:#0f172a;border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+.pbar i{display:block;height:100%;background:linear-gradient(90deg,#10b981,#84cc16);transition:width .3s}
+.encbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.encbtns .wide{grid-column:span 2}
+.warn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.5);color:#fca5a5;border-radius:10px;padding:6px 8px;font-size:11.5px;font-weight:700;margin-top:8px;display:none}
+.warn.on{display:block}
+.reveal{text-align:center;padding:8px 0}
+.reveal .e{display:flex;justify-content:center}
+.crate-shake{animation:shake .3s infinite;font-size:90px}
+.glow-Mythic{filter:drop-shadow(0 0 18px #fbbf24)}.glow-Epic{filter:drop-shadow(0 0 18px #a78bfa)}.glow-Rare{filter:drop-shadow(0 0 18px #38bdf8)}
+.poster{width:100%;border-radius:12px;display:block}
+
+.toasts{position:absolute;top:150px;left:0;right:0;z-index:1200;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+.toast{background:rgba(15,23,42,.95);border:1px solid var(--line);border-radius:12px;padding:8px 14px;font-size:12.5px;font-weight:700;max-width:88%;text-align:center;animation:pop .2s;box-shadow:0 8px 20px rgba(0,0,0,.4)}
+.toast.good{border-color:var(--green)}.toast.bad{border-color:var(--red);color:#fecaca}.toast.gold{border-color:var(--amber)}
+@keyframes pulse{50%{opacity:.6}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="titlebar">
+    <div class="intense-badge" id="intenseBadge">⚡ 2x INTENSE</div>
+    <span><span class="logo">Eco</span>Track GO</span>
+    <div class="capsule"><button id="capsuleMenu" title="Menu">•••</button><i></i><button title="Close" onclick="toast('Mini Program minimised (demo)')">◎</button></div>
+  </div>
+
+  <div class="hud">
+    <div class="stat hero"><div class="lbl">🌱 CO₂ Saved</div><div class="val" id="hudCo2">12.400 <small>kg</small></div></div>
+    <div class="stat coin"><div class="lbl">🪙 EcoCoins</div><div class="val" id="hudCoins">3,450</div></div>
+    <div class="stat streak"><div class="lbl">Daily Streak</div><div class="val" id="hudStreak">🔥 5d</div></div>
+  </div>
+
+  <div class="strip idle" id="strip"><span class="main" id="stripMain">📡 Waiting for GPS…</span><span id="stripChips"></span></div>
+
+  <div class="views">
+    <!-- MAP -->
+    <section class="view active" id="view-map">
+      <div id="map"></div>
+      <div class="ovl nearby" id="nearby"></div>
+      <div class="ovl pill gpspill" id="gpsPill"><span class="dot"></span><span id="gpsTxt">GPS off</span></div>
+      <div class="ovl pill habpill" id="habPill">🧭 Scanning nearby places…</div>
+      <div class="ovl provider" id="provider">Map</div>
+      <div class="ovl carflag" id="carflag">🚨 Car Speed (&gt;25 km/h) • No Weixin Transit Tap<br><span style="font-weight:500">EcoCoin &amp; CO₂ rewards paused — slow down or tap a WeChat Pay Transit QR.</span></div>
+      <button class="ovl recenter on" id="recenter" title="Follow my location">◎</button>
+      <div class="ovl simpad" id="simpad">
+        <span class="tag">🧪 GPS SIMULATOR</span>
+        <div class="dpad">
+          <span class="c"></span><button data-d="0">▲</button><span class="c"></span>
+          <button data-d="270">◀</button><span class="c"></span><button data-d="90">▶</button>
+          <span class="c"></span><button data-d="180">▼</button><span class="c"></span>
+        </div>
+      </div>
+      <div class="ovl gate" id="gate"><div class="card"><span class="e" id="gateE">📍</span><div class="title" id="gateT">Allow location to play</div><div class="sub" id="gateS" style="margin:6px 0 12px">EcoTrack GO moves you on the map only when you physically walk, run, cycle or ride.</div>
+        <div class="grid2"><button class="btn g" onclick="startGPS(true)">📍 Use my GPS</button><button class="btn p" onclick="setSim(true)">🧪 Simulator</button></div></div></div>
+    </section>
+
+    <!-- ARENA -->
+    <section class="view pad" id="view-arena">
+      <h2>⚔️ Walking-Powered Arena</h2>
+      <p class="sub">Your champion only hits when <b>you walk</b>: damage = metres walked × its damage-per-metre. Keep a running pace and the rival hits you <b>much softer</b>. Win = <b class="price">+350 🪙</b> + XP</p>
+      <div class="rivalcard" id="rivalCard"></div>
+      <h3>Choose champion</h3>
+      <div class="chips" id="arenaPicks"></div>
+      <div class="stage" id="stage" style="margin-top:8px">
+        <div class="buffs" id="buffs"></div>
+        <div class="fighter rival"><span class="e" id="rivalE"></span><span class="nm" id="rivalNm"></span><div class="hp" id="rivalHPb"><i></i></div></div>
+        <div class="fighter mine"><span class="e" id="champE"></span><span class="nm" id="champNm">—</span><div class="hp" id="champHPb"><i></i></div></div>
+      </div>
+      <div class="turnbox">
+        <div class="card"><div class="sub">Turn timer</div><div class="v" id="arTimer">15.0s</div></div>
+        <div class="card"><div class="sub">GPS metres</div><div class="v" id="arMeters">0 m</div></div>
+        <div class="card"><div class="sub">Your hit</div><div class="v price" id="arDmg">0</div></div>
+      </div>
+      <div class="pace still" id="arPace">🧍 Standing still — you deal 0 damage and take full hits</div>
+      <div class="livegps" id="arGps" style="margin-top:8px">📡 Walk with your phone — GPS metres charge your attack</div>
+      <div class="simrow" id="arSim"><button class="btn p" onclick="simForward(10)">🧪 Sim +10m</button><button class="btn p" onclick="simForward(25)">🧪 Sim +25m</button></div>
+      <h3>🧪 Battle potions <span class="tag">one of each per turn</span></h3>
+      <div class="grid4" id="arPotions"></div>
+      <button class="btn p full" id="arMain" style="margin-top:10px" onclick="arenaMain()">⚔️ Start Battle</button>
+      <div class="warn" id="arWarn">🚨 Car speed detected — turn metres won't charge.</div>
+      <h3>Battle log</h3>
+      <div class="card log" id="arLog"><div>Pick a champion with a type advantage, then start the battle.</div></div>
+    </section>
+
+    <!-- SHOP -->
+    <section class="view pad" id="view-shop">
+      <h2>🛍️ EcoShop</h2>
+      <p class="sub">Spend EcoCoins earned from verified walks, rides and battles.</p>
+      <h3>🐾 Ecomon Market <span class="tag">stronger = pricier</span></h3>
+      <div class="sub" style="margin:-4px 0 8px">Rarity and type set the price. Bought Ecomon start at Lv 1 — level them up by walking with them and battling.</div>
+      <div id="market" class="market"></div>
+      <h3>⚡ Boosts</h3>
+      <div class="card"><div class="row"><div class="big-ic">⚡</div><div class="grow"><div class="title">Intense Mode Pass</div><div class="sub">Single-use. 2× distance &amp; EcoCoins for one workout / catch / battle session. Owned: <b id="passCount">0</b></div></div></div>
+        <div class="grid2" style="margin-top:10px"><button class="btn a" onclick="buyPass()">Buy 3,000 🪙</button><button class="btn p" id="activatePass" onclick="activatePass()">Activate</button></div></div>
+      <div class="card"><div class="row"><div class="big-ic">🍓</div><div class="grow"><div class="title">Eco-Berry Pack ×3</div><div class="sub">Calms wild Ecomon: −30% sprint distance. Owned: <b id="berryCount">0</b></div></div><button class="btn a sm" onclick="buyBerries()">250 🪙</button></div></div>
+      <h3>🧪 Battle Potions</h3>
+      <div id="shopPotions"></div>
+      <h3>📦 Gacha Crates <span class="tag">Trainer outfits are crate-only</span></h3>
+      <div class="grid2" id="crates"></div>
+      <div class="sub" style="margin-top:4px">Duplicate pulls refund 50% of the crate cost.</div>
+      <h3>🎭 Trainer outfits</h3>
+      <div class="grid3" id="shopSkins"></div>
+      <h3>🎟️ Real-World Eco-Coupons</h3>
+      <div id="coupons"></div>
+      <h3>👛 My Active Voucher Codes</h3>
+      <div id="wallet1"></div>
+    </section>
+
+    <!-- SQUAD -->
+    <section class="view pad" id="view-squad">
+      <h2>🐾 My Squad</h2>
+      <p class="sub">Your champion earns XP from every 10 m you walk, plus battle XP. Each level adds a little damage-per-metre and HP.</p>
+      <h3>Eco-Dex</h3>
+      <div class="dex" id="dex"></div>
+      <h3>Type matchups</h3>
+      <div class="card sub" id="typeChart" style="padding:10px"></div>
+      <h3>Caught (<span id="squadCount">0</span>)</h3>
+      <div class="grid2" id="squadGrid"></div>
+    </section>
+  </div>
+
+  <nav class="nav">
+    <button data-v="map" class="on"><span class="ic">🗺️</span>Map</button>
+    <button data-v="arena"><span class="ic">⚔️</span>Arena</button>
+    <button data-v="shop" class="shop"><span class="ic">🛍️</span><span>SHOP</span></button>
+    <button data-v="squad"><span class="ic">🐾</span>Squad</button>
+    <button id="navMenu"><span class="ic">☰</span>Menu</button>
+  </nav>
+
+  <!-- DRAWER -->
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" id="drawer">
+    <div class="dhead"><div class="av" id="dAv"></div><div style="flex:1"><div class="title" id="dName">Eco Ranger</div><div class="sub" id="dSub">WeChat linked</div></div><button class="btn sm" onclick="closeDrawer()">✕</button></div>
+    <div class="dbody">
+      <div class="acc open" id="acc-lb"><button onclick="toggleAcc('lb')">🏆 WeChat Friends Leaderboard</button><div class="in">
+        <div class="seg"><button class="on" data-sort="c">By EcoCoins</button><button data-sort="k">By CO₂ saved</button></div>
+        <div id="lbList"></div><div class="sub" style="margin-top:6px" id="lbSync"></div></div></div>
+      <div class="acc" id="acc-vc"><button onclick="toggleAcc('vc')">🎟️ My Eco-Coupons &amp; Vouchers</button><div class="in">
+        <div id="wallet2"></div><button class="btn a full" onclick="closeDrawer();showView('shop');setTimeout(()=>$('#coupons').scrollIntoView({behavior:'smooth'}),50)">Redeem more coupons →</button></div></div>
+      <div class="acc" id="acc-pf"><button onclick="toggleAcc('pf')">🪪 Profile &amp; Moments Poster</button><div class="in">
+        <div class="sub">Display name</div><input type="text" id="nameInput" maxlength="16" style="margin:4px 0 10px">
+        <div class="grid3" id="profileStats" style="margin-bottom:10px"></div>
+        <div class="sub" style="margin-bottom:6px">Equip an unlocked trainer outfit</div>
+        <div class="grid3" id="profileSkins"></div>
+        <button class="btn g full" style="margin-top:10px" onclick="makePoster()">📸 Generate WeChat Moments Poster</button></div></div>
+      <div class="acc" id="acc-map"><button onclick="toggleAcc('map')">🗺️ Map &amp; GPS Settings</button><div class="in">
+        <div class="card" style="background:var(--panel2);padding:10px" id="mapStatus"></div>
+        <div class="sub" style="margin-bottom:4px">Google Maps JavaScript API key <span class="tag">stored only in this browser</span></div>
+        <input type="password" id="gkey" placeholder="Paste your Google Maps API key" autocomplete="off">
+        <div class="grid2" style="margin-top:8px"><button class="btn g sm" onclick="saveKey()">Save &amp; load Google Maps</button><button class="btn sm" onclick="clearKey()">Use free map</button></div>
+        <div class="sub" style="margin-top:8px">Without a key the game uses a free Esri street map. Nearby places (lakes, parks, stadiums…) come from Esri place search, with OpenStreetMap as backup. Live GPS needs HTTPS (or localhost) and location permission.</div>
+        <button class="btn b sm full" style="margin-top:8px" onclick="startGPS(true)">📍 Restart live GPS</button>
+      </div></div>
+      <div class="acc" id="acc-dev"><button onclick="toggleAcc('dev')">🧪 Dev Lab, Weixin Wallet &amp; GPS Tester</button><div class="in">
+        <div class="row"><div class="grow"><div class="title" style="font-size:13px">🧪 GPS Simulator (desk testing)</div><div class="sub">Replaces live GPS with fake fixes from the on-map D-pad. Off = only real walking moves you.</div></div><button class="toggle" id="simToggle"></button></div>
+        <div class="simonly" id="simBox" style="margin-top:10px">
+          <div class="row"><div class="grow"><div class="sub">Simulated GPS speed</div><div class="speedval"><span id="spdVal">5.0</span> <small style="font-size:13px;color:var(--muted)">km/h</small></div></div><span class="tag" id="spdMode">WALK</span></div>
+          <input type="range" id="spd" min="0" max="60" step="0.5" value="5">
+          <div class="presets">
+            <button class="btn sm" onclick="setSimSpeed(0)">Idle 0</button><button class="btn sm" onclick="setSimSpeed(5)">🚶 Walk 5</button><button class="btn sm" onclick="setSimSpeed(12)">🏃 Run 12</button><button class="btn sm" onclick="setSimSpeed(20)">🚲 Cycle 20</button><button class="btn sm r" onclick="setSimSpeed(45)">🚗 Car 45</button>
+          </div>
+        </div>
+        <h3>💳 Weixin Wallet · Transit Ride Code (乘车码)</h3>
+        <div class="card" style="background:var(--panel2);padding:10px" id="transitStatus"></div>
+        <div class="grid3"><button class="btn b sm" onclick="tapTransit('MTR')">🚇 Tap MTR Ride Code</button><button class="btn b sm" onclick="tapTransit('BUS')">🚌 Tap City Bus QR</button><button class="btn sm" onclick="exitTransit()">🚶 Exit Station</button></div>
+        <div class="sub" style="margin:8px 0 2px">Recent ride fare log</div><div id="rideLog"></div>
+        <h3>⌚ WeRun / Smartwatch Sync</h3>
+        <div class="row"><div class="grow"><div class="sub">+15% Heart-Rate Cadence Bonus on verified walks &amp; rides</div></div><button class="toggle" id="watchToggle"></button></div>
+        <div class="bio"><div><span class="sub">Heart rate</span><b class="hr" id="bpm">--</b><span class="sub">BPM</span></div><div><span class="sub">Cadence</span><b id="spm">--</b><span class="sub">SPM</span></div><div><span class="sub">Bonus</span><b id="bonusV" style="color:var(--green)">—</b><span class="sub">coins</span></div></div>
+        <h3>⏱️ Timed walk simulators <span class="tag">simulator only</span></h3>
+        <div class="simonly" id="simBox2"><div class="grid4"><button class="btn sm" onclick="simWalk(1)">1 min</button><button class="btn sm" onclick="simWalk(5)">5 min</button><button class="btn sm" onclick="simWalk(10)">10 min</button><button class="btn sm" onclick="simWalk(30)">30 min</button></div></div>
+        <div class="sub" id="simStatus" style="margin-top:6px">Turn on the GPS Simulator to use these.</div>
+        <h3>🛠️ Dev tools</h3>
+        <div class="grid2"><button class="btn sm a" onclick="S.coins+=1000;hud(true);toast('+1,000 🪙 (dev)','gold')">+1,000 🪙</button><button class="btn sm r" onclick="resetAll()">Reset progress</button></div>
+      </div></div>
+    </div>
+  </aside>
+
+  <div class="modal" id="modal"><div class="mbox" id="mbox"></div></div>
+  <div class="toasts" id="toasts"></div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const rand=(a,b)=>a+Math.random()*(b-a), randInt=(a,b)=>Math.floor(rand(a,b+1)), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const fmt=n=>Math.floor(n).toLocaleString('en-US');
+
+/* =========================================================
+   TYPES, RARITY & BATTLE MATHS
+   ========================================================= */
+// Each type is strong against two types and weak against two (balanced pentagon).
+const TYPES={
+  Leaf:  {icon:'🍃',col:'#4ade80',dmg:1.00,hp:1.10,strong:['Aqua','Terra'],why:'roots drink water & crack stone'},
+  Aqua:  {icon:'💧',col:'#38bdf8',dmg:1.00,hp:1.05,strong:['Terra','Volt'],why:'washes away earth & shorts out sparks'},
+  Volt:  {icon:'⚡',col:'#facc15',dmg:1.25,hp:0.85,strong:['Breeze','Leaf'],why:'lightning rules the sky & scorches leaves'},
+  Terra: {icon:'⛰️',col:'#d6a15c',dmg:0.85,hp:1.30,strong:['Volt','Breeze'],why:'grounds electricity & blocks wind'},
+  Breeze:{icon:'🌬️',col:'#a5f3fc',dmg:1.10,hp:0.95,strong:['Leaf','Aqua'],why:'scatters leaves & whips up waves'}};
+const RAR={
+  Common:   {m:1.00,hp:1.00,w:50,price:400, req:[15,40], lv:[1,3]},
+  Uncommon: {m:1.25,hp:1.10,w:28,price:900, req:[25,55], lv:[1,4]},
+  Rare:     {m:1.60,hp:1.20,w:15,price:1800,req:[40,75], lv:[2,5]},
+  Epic:     {m:2.00,hp:1.30,w:6, price:3600,req:[55,95], lv:[3,6]},
+  Legendary:{m:2.60,hp:1.45,w:1, price:7500,req:[80,120],lv:[5,8]}};
+const BASE_PER_M=0.35;   // every metre is a small hit — battles are won by walking a lot, not one big swing
+function eff(att,def){return TYPES[att].strong.includes(def)?1.5:TYPES[def].strong.includes(att)?0.6:1}
+function effTxt(x){return x>1?'<b style="color:#4ade80">Super effective ×1.5</b>':x<1?'<b style="color:#f87171">Not very effective ×0.6</b>':'Normal ×1'}
+const xpNeed=l=>40+l*20;
+function perMetre(m){const s=SPECIES[m.sp];return BASE_PER_M*RAR[s.rarity].m*TYPES[s.type].dmg*(1+0.06*(m.lvl-1))}
+function maxHP(m){const s=SPECIES[m.sp];return Math.round((55+m.lvl*6)*RAR[s.rarity].hp*TYPES[s.type].hp)}
+function priceOf(k){const s=SPECIES[k];return Math.round(RAR[s.rarity].price*TYPES[s.type].dmg/50)*50}
+const typeBadge=t=>`<span class="tb" style="background:${TYPES[t].col}">${TYPES[t].icon} ${t}</span>`;
+
+/* =========================================================
+   ORIGINAL CREATURE ART (SVG)
+   ========================================================= */
+const SPECIES={
+  sproutling:{name:'Sproutling',type:'Leaf',  rarity:'Common',   c:'#4ade80',d:'#166534',a:'#86efac',b:'#dcfce7',tail:'leaf',head:'sprout',w:30,t:24},
+  drizzlet:  {name:'Drizzlet',  type:'Aqua',  rarity:'Common',   c:'#60a5fa',d:'#1e3a8a',a:'#93c5fd',b:'#dbeafe',ear:'fin',tail:'fin',head:'drop',w:31,t:28},
+  pebblit:   {name:'Pebblit',   type:'Terra', rarity:'Common',   c:'#a8a29e',d:'#44403c',a:'#d6d3d1',b:'#f5f5f4',ear:'round',tail:'rock',head:'pebble',w:33,t:28},
+  breezebird:{name:'Breezebird',type:'Breeze',rarity:'Uncommon', c:'#7dd3fc',d:'#0c4a6e',a:'#f0f9ff',b:'#f0f9ff',wing:'bird',tail:'feather',head:'tuft',w:28,t:26},
+  voltfox:   {name:'Voltfox',   type:'Volt',  rarity:'Uncommon', c:'#facc15',d:'#854d0e',a:'#fef08a',b:'#fefce8',ear:'pointy',tail:'bolt',w:29,t:28},
+  coralyn:   {name:'Coralyn',   type:'Aqua',  rarity:'Rare',     c:'#2dd4bf',d:'#115e59',a:'#fb7185',b:'#ccfbf1',ear:'fin',tail:'fin',head:'coral',w:30,t:28},
+  terrawing: {name:'Terrawing', type:'Terra', rarity:'Rare',     c:'#c2700f',d:'#451a03',a:'#f59e0b',b:'#fde68a',ear:'horn',wing:'bat',tail:'rock',w:29,t:28},
+  thornix:   {name:'Thornix',   type:'Leaf',  rarity:'Epic',     c:'#15803d',d:'#052e16',a:'#a3e635',b:'#bbf7d0',ear:'leaf',tail:'leaf',head:'thorns',w:31,t:28},
+  stormane:  {name:'Stormane',  type:'Volt',  rarity:'Epic',     c:'#8b5cf6',d:'#2e1065',a:'#fde047',b:'#ede9fe',ear:'pointy',back:'mane',tail:'bolt',w:30,t:30},
+  aurorix:   {name:'Aurorix',   type:'Breeze',rarity:'Legendary',c:'#f5d0fe',d:'#701a75',a:'#a5f3fc',b:'#fdf4ff',wing:'bird',tail:'feather',head:'star',w:29,t:28}};
+const RIVALS={
+  smoggolem: {name:'Smoggolem', type:'Breeze',c:'#6b7280',d:'#1f2937',a:'#9ca3af',b:'#d1d5db',ear:'round',head:'smog',angry:1,w:34,t:30},
+  sludgeon:  {name:'Sludgeon',  type:'Aqua',  c:'#57603a',d:'#1a2008',a:'#292524',b:'#8a8b62',ear:'fin',tail:'fin',head:'oil',angry:1,w:33,t:30},
+  scraptor:  {name:'Scraptor',  type:'Terra', c:'#9a3412',d:'#431407',a:'#78716c',b:'#d6d3d1',ear:'horn',tail:'rock',head:'bolts',angry:1,w:32,t:30},
+  wattgrime: {name:'Wattgrime', type:'Volt',  c:'#a16207',d:'#422006',a:'#57534e',b:'#d6d3d1',ear:'pointy',tail:'plug',angry:1,w:30,t:30},
+  litterbug: {name:'Litterbug', type:'Leaf',  c:'#78716c',d:'#292524',a:'#a8a29e',b:'#e7e5e4',ear:'leaf',tail:'leaf',head:'bag',angry:1,w:32,t:30}};
+
+let svgN=0;
+const sym=x=>x+`<g transform="matrix(-1 0 0 1 100 0)">${x}</g>`;
+const bodyPath=(w,t)=>`M50 ${t}C${50+w*.75} ${t} ${50+w} ${t+20} ${50+w} 60C${50+w} 78 ${50+w*.56} 88 50 88C${50-w*.56} 88 ${50-w} 78 ${50-w} 60C${50-w} ${t+20} ${50-w*.75} ${t} 50 ${t}Z`;
+const P={
+ ear:{
+  leaf:(c,d,a)=>sym(`<path d="M37 32C26 20 29 7 39 8C44 16 44 25 39 33Z" fill="${a}" stroke="${d}" stroke-width="2"/>`),
+  pointy:(c,d,a)=>sym(`<path d="M27 40L23 8L48 28Z" fill="${c}" stroke="${d}" stroke-width="2.5" stroke-linejoin="round"/><path d="M29 33L27 16L41 28Z" fill="${a}"/>`),
+  round:(c,d,a)=>sym(`<circle cx="28" cy="32" r="10" fill="${c}" stroke="${d}" stroke-width="2.5"/><circle cx="28" cy="32" r="5" fill="${a}"/>`),
+  fin:(c,d,a)=>sym(`<path d="M22 52C5 46 5 29 18 23C22 33 26 41 31 45Z" fill="${a}" stroke="${d}" stroke-width="2"/>`),
+  horn:(c,d,a)=>sym(`<path d="M36 30C30 18 32 9 37 4C40 13 43 21 44 28Z" fill="${a}" stroke="${d}" stroke-width="2"/>`),
+  none:()=>''},
+ tail:{
+  leaf:(c,d,a)=>`<path d="M74 74C92 72 98 56 93 44C84 48 78 60 74 74Z" fill="${a}" stroke="${d}" stroke-width="2"/><path d="M76 70C82 62 87 54 91 48" stroke="${d}" stroke-width="1.5" fill="none"/>`,
+  bolt:(c,d,a)=>`<path d="M72 76L86 66L80 62L95 44L82 52L86 40L72 58L79 62Z" fill="${a}" stroke="${d}" stroke-width="2" stroke-linejoin="round"/>`,
+  fin:(c,d,a)=>`<path d="M72 70C86 76 97 70 97 60C91 64 85 64 81 62C87 58 91 52 89 45C83 54 77 60 72 64Z" fill="${a}" stroke="${d}" stroke-width="2"/>`,
+  feather:(c,d,a)=>`<g fill="${a}" stroke="${d}" stroke-width="1.8"><ellipse cx="84" cy="72" rx="13" ry="5" transform="rotate(-20 84 72)"/><ellipse cx="83" cy="63" rx="12" ry="4.5" transform="rotate(-42 83 63)"/></g>`,
+  rock:(c,d,a)=>`<path d="M72 78L85 72L82 64L95 61L88 53L76 62Z" fill="${a}" stroke="${d}" stroke-width="2" stroke-linejoin="round"/>`,
+  plug:(c,d,a)=>`<path d="M74 76C86 80 92 72 90 62" stroke="${d}" stroke-width="3" fill="none"/><rect x="85" y="52" width="10" height="11" rx="2" fill="${a}" stroke="${d}" stroke-width="2"/><path d="M88 52v-5M92 52v-5" stroke="${d}" stroke-width="2"/>`,
+  none:()=>''},
+ wing:{
+  bird:(c,d,a)=>sym(`<path d="M22 60C4 54 2 40 8 33C15 44 22 48 29 50Z" fill="${a}" stroke="${d}" stroke-width="2"/>`),
+  bat:(c,d,a)=>sym(`<path d="M24 56L3 36L9 52L1 53L13 62L7 67L26 67Z" fill="${a}" stroke="${d}" stroke-width="2" stroke-linejoin="round"/>`),
+  none:()=>''},
+ back:{
+  mane:(c,d,a)=>`<path d="M50 14L58 22L70 17L72 30L85 33L79 44L89 54L76 58L50 32L24 58L11 54L21 44L15 33L28 30L30 17L42 22Z" fill="${a}" stroke="${d}" stroke-width="2" stroke-linejoin="round"/>`,
+  none:()=>''},
+ head:{
+  sprout:(c,d,a,t)=>`<path d="M50 ${t+2}V${t-8}" stroke="${d}" stroke-width="2.5"/><path d="M50 ${t-7}C43 ${t-16} 34 ${t-12} 36 ${t-8}C40 ${t-4} 46 ${t-4} 50 ${t-7}Z" fill="${a}" stroke="${d}" stroke-width="2"/><path d="M50 ${t-7}C57 ${t-18} 68 ${t-14} 64 ${t-9}C60 ${t-4} 54 ${t-4} 50 ${t-7}Z" fill="${a}" stroke="${d}" stroke-width="2"/>`,
+  drop:(c,d,a,t)=>`<path d="M50 ${t-18}C54 ${t-10} 58 ${t-7} 58 ${t-2}C58 ${t+3} 54 ${t+6} 50 ${t+6}C46 ${t+6} 42 ${t+3} 42 ${t-2}C42 ${t-7} 46 ${t-10} 50 ${t-18}Z" fill="${a}" stroke="${d}" stroke-width="2"/><ellipse cx="47" cy="${t-3}" rx="2" ry="3" fill="#fff" opacity=".7"/>`,
+  oil:(c,d,a,t)=>`<path d="M50 ${t-14}C54 ${t-6} 58 ${t-4} 58 ${t}C58 ${t+5} 54 ${t+8} 50 ${t+8}C46 ${t+8} 42 ${t+5} 42 ${t}C42 ${t-4} 46 ${t-6} 50 ${t-14}Z" fill="#1c1917" stroke="#000" stroke-width="2"/><ellipse cx="47" cy="${t-1}" rx="1.6" ry="2.6" fill="#a855f7" opacity=".7"/>`,
+  pebble:(c,d,a,t)=>`<ellipse cx="44" cy="${t+1}" rx="8" ry="5" fill="${a}" stroke="${d}" stroke-width="2"/><ellipse cx="56" cy="${t-1}" rx="6" ry="4.5" fill="${a}" stroke="${d}" stroke-width="2"/>`,
+  tuft:(c,d,a,t)=>`<path d="M44 ${t+3}C40 ${t-10} 46 ${t-14} 50 ${t-8}C54 ${t-16} 62 ${t-12} 56 ${t+3}Z" fill="${a}" stroke="${d}" stroke-width="2"/>`,
+  coral:(c,d,a,t)=>sym(`<path d="M42 ${t+3}L37 ${t-8}M37 ${t-3}L31 ${t-8}M38 ${t-6}L41 ${t-14}" stroke="${a}" stroke-width="4" stroke-linecap="round"/>`),
+  thorns:(c,d,a,t)=>`<path d="M30 ${t+10}L34 ${t-2}L40 ${t+5}L45 ${t-6}L50 ${t+3}L55 ${t-6}L60 ${t+5}L66 ${t-2}L70 ${t+10}Z" fill="${a}" stroke="${d}" stroke-width="2" stroke-linejoin="round"/>`,
+  star:(c,d,a,t)=>`<path d="M50 ${t+4}L46 ${t-12}L50 ${t-20}L54 ${t-12}Z" fill="${a}" stroke="${d}" stroke-width="2"/><path d="M50 ${t-27}l2.4 5 5.4.6-4 3.7 1.1 5.3-4.9-2.7-4.9 2.7 1.1-5.3-4-3.7 5.4-.6z" fill="#fde047" stroke="#ca8a04" stroke-width="1"/>`,
+  smog:(c,d,a,t)=>`<g fill="#64748b" opacity=".9"><circle cx="40" cy="${t-4}" r="7"/><circle cx="52" cy="${t-9}" r="9"/><circle cx="63" cy="${t-3}" r="6"/></g><g fill="#94a3b8" opacity=".6"><circle cx="72" cy="${t-12}" r="4"/><circle cx="30" cy="${t-12}" r="3"/></g>`,
+  bag:(c,d,a,t)=>`<path d="M38 ${t+6}L40 ${t-12}L46 ${t-12}L47 ${t-6}L53 ${t-6}L54 ${t-12}L60 ${t-12}L62 ${t+6}Z" fill="rgba(255,255,255,.6)" stroke="#94a3b8" stroke-width="1.5"/>`,
+  bolts:(c,d,a,t)=>`<path d="M44 ${t+2}L46 ${t-10}L54 ${t-10}L56 ${t+2}Z" fill="${a}" stroke="${d}" stroke-width="1.5"/><path d="M47 ${t-6}h6M47 ${t-2}h6" stroke="${d}" stroke-width="1.5"/>`,
+  none:()=>''}};
+const eyesSVG=angry=>`<ellipse cx="40" cy="50" rx="5.5" ry="7" fill="#1e1b2e"/><ellipse cx="60" cy="50" rx="5.5" ry="7" fill="#1e1b2e"/><circle cx="41.8" cy="47" r="2.3" fill="#fff"/><circle cx="61.8" cy="47" r="2.3" fill="#fff"/>`+
+  (angry?`<path d="M32 40L46 45M68 40L54 45" stroke="#1e1b2e" stroke-width="3.2" stroke-linecap="round"/><path d="M44 65Q50 60 56 65" stroke="#1e1b2e" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
+        :`<ellipse cx="30" cy="59" rx="4.5" ry="3" fill="#fb7185" opacity=".55"/><ellipse cx="70" cy="59" rx="4.5" ry="3" fill="#fb7185" opacity=".55"/><path d="M45 61Q50 66 55 61" stroke="#1e1b2e" stroke-width="2.2" fill="none" stroke-linecap="round"/>`);
+
+/* Habitat themes — chosen from the real place the Ecomon spawned at */
+const HAB={
+  water:  {icon:'💧',adj:'Lakeside',label:'Water',   types:['Aqua'],          note:'dripping wet in a wave-print water shirt'},
+  stadium:{icon:'🏟️',adj:'Stadium', label:'Stadium', types:['Volt','Breeze'], note:'in a team jersey & sweatband'},
+  park:   {icon:'🌳',adj:'Park',    label:'Park',    types:['Leaf'],          note:'wearing a flower crown'},
+  beach:  {icon:'🏖️',adj:'Beach',   label:'Beach',   types:['Aqua','Breeze'], note:'in cool sunglasses'},
+  city:   {icon:'🏙️',adj:'City',    label:'City',    types:['Terra','Volt'],  note:'in a backwards street cap'},
+  transit:{icon:'🚉',adj:'Metro',   label:'Station', types:['Volt','Terra'],  note:'in a commuter scarf'},
+  wild:   {icon:'🌿',adj:'',        label:'Wild',    types:[],                note:''}};
+const THEME_SVG={
+  water:(id,w,t)=>`<g clip-path="url(#${id})"><rect x="0" y="64" width="100" height="40" fill="#0ea5e9"/><path d="M14 74q5-4 10 0t10 0t10 0t10 0t10 0t10 0t10 0" stroke="#e0f2fe" stroke-width="2.2" fill="none"/><path d="M14 82q5-4 10 0t10 0t10 0t10 0t10 0t10 0t10 0" stroke="#bae6fd" stroke-width="1.6" fill="none"/></g><path d="M38 64Q50 70 62 64" stroke="#0369a1" stroke-width="2" fill="none"/>`+
+    [[50-w+5,50,0],[50+w-6,56,.55],[43,t+8,1.1]].map(([x,y,dl])=>`<path d="M${x} ${y}c2 4 3.5 6 3.5 8a3.5 3.5 0 0 1-7 0c0-2 1.5-4 3.5-8z" fill="#7dd3fc" stroke="#0369a1" stroke-width="1"><animateTransform attributeName="transform" type="translate" values="0 0;0 12;0 12" keyTimes="0;.85;1" dur="1.8s" begin="${dl}s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" keyTimes="0;.7;1" dur="1.8s" begin="${dl}s" repeatCount="indefinite"/></path>`).join(''),
+  stadium:(id,w,t)=>`<g clip-path="url(#${id})"><rect x="0" y="64" width="100" height="40" fill="#dc2626"/><rect x="0" y="64" width="100" height="3" fill="#fff"/><rect x="0" y="${t+11}" width="100" height="5" fill="#fff"/><rect x="0" y="${t+12.6}" width="100" height="1.8" fill="#dc2626"/></g><text x="50" y="83" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="Arial,sans-serif">7</text>`,
+  park:(id,w,t)=>`<path d="M31 ${t+11}Q50 ${t-2} 69 ${t+11}" stroke="#15803d" stroke-width="2.5" fill="none"/>`+[[33,t+10],[41,t+5],[50,t+3],[59,t+5],[67,t+10]].map(([x,y],i)=>{const col=['#f472b6','#facc15','#fb7185','#facc15','#f472b6'][i];return `<g transform="translate(${x} ${y})"><circle cx="0" cy="-3" r="2.6" fill="${col}"/><circle cx="3" cy="0" r="2.6" fill="${col}"/><circle cx="0" cy="3" r="2.6" fill="${col}"/><circle cx="-3" cy="0" r="2.6" fill="${col}"/><circle r="1.8" fill="#fff7ed"/></g>`}).join(''),
+  beach:()=>`<rect x="31" y="44" width="16" height="11" rx="5" fill="#0f172a"/><rect x="53" y="44" width="16" height="11" rx="5" fill="#0f172a"/><path d="M47 48h6" stroke="#0f172a" stroke-width="2.5"/><path d="M34 46.5h5M56 46.5h5" stroke="#fff" stroke-width="1.5" opacity=".6"/>`,
+  city:(id,w,t)=>`<path d="M30 ${t+13}C30 ${t-4} 70 ${t-4} 70 ${t+13}Z" fill="#7c3aed" stroke="#4c1d95" stroke-width="2"/><path d="M66 ${t+11}L85 ${t+9}L83 ${t+14}L66 ${t+14}Z" fill="#6d28d9" stroke="#4c1d95" stroke-width="1.5"/><circle cx="50" cy="${t+1}" r="2" fill="#4c1d95"/>`,
+  transit:(id,w,t)=>`<g clip-path="url(#${id})"><rect x="0" y="62" width="100" height="7" fill="#f59e0b"/><rect x="0" y="64.5" width="100" height="1.5" fill="#b45309"/></g><path d="M63 65L70 83L61 80Z" fill="#f59e0b" stroke="#b45309" stroke-width="1.5"/>`,
+  wild:()=>''};
+function monSVG(def,theme='wild',size=64){
+  const id='m'+(++svgN),w=def.w||31,t=def.t||26,{c,d,a,b}=def;
+  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="${id}"><path d="${bodyPath(w,t)}"/></clipPath><radialGradient id="${id}g" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>`+
+    `<ellipse cx="50" cy="93" rx="${w*.8}" ry="4.5" fill="rgba(0,0,0,.28)"/>`+
+    P.back[def.back||'none'](c,d,a)+P.tail[def.tail||'none'](c,d,a)+P.wing[def.wing||'none'](c,d,a)+P.ear[def.ear||'none'](c,d,a)+
+    `<ellipse cx="38" cy="87" rx="7" ry="4" fill="${d}"/><ellipse cx="62" cy="87" rx="7" ry="4" fill="${d}"/>`+
+    `<path d="${bodyPath(w,t)}" fill="${c}" stroke="${d}" stroke-width="2.5"/><g clip-path="url(#${id})"><ellipse cx="50" cy="73" rx="${w*.6}" ry="15" fill="${b}"/></g><path d="${bodyPath(w,t)}" fill="url(#${id}g)"/>`+
+    eyesSVG(def.angry)+P.head[def.head||'none'](c,d,a,t)+(THEME_SVG[theme]||THEME_SVG.wild)(id,w,t)+`</svg>`}
+const monArt=(m,size)=>monSVG(SPECIES[m.sp],m.theme||'wild',size);
+const ballSVG=`<svg viewBox="0 0 40 40" width="36" height="36"><circle cx="20" cy="20" r="18" fill="#16a34a" stroke="#052e16" stroke-width="2.5"/><path d="M2 20h36" stroke="#052e16" stroke-width="2.5"/><path d="M2.5 20a17.5 17.5 0 0 0 35 0z" fill="#f8fafc"/><path d="M20 4c-4 4-4 9 0 12 4-3 4-8 0-12z" fill="#bbf7d0"/><circle cx="20" cy="20" r="5.5" fill="#f8fafc" stroke="#052e16" stroke-width="2.5"/></svg>`;
+
+/* Trainer outfits (player avatar) */
+const SKINS={
+  default:{name:'Eco Walker',rarity:'Starter',h:'#10b981',d:'#065f46',k:'cap'},
+  bamboo: {name:'Bamboo Guardian',rarity:'Common',h:'#f8fafc',d:'#0f172a',k:'panda'},
+  moss:   {name:'Moss Hopper',rarity:'Common',h:'#65a30d',d:'#365314',k:'frog'},
+  solar:  {name:'Solar Owl',rarity:'Rare',h:'#d97706',d:'#78350f',k:'owl'},
+  dragon: {name:'Emerald Cyber-Dragon',rarity:'Epic',h:'#059669',d:'#022c22',k:'dragon'},
+  aurora: {name:'Aurora Spirit',rarity:'Mythic',h:'#e9d5ff',d:'#6b21a8',k:'unicorn'}};
+function trainerSVG(k,size=40){const s=SKINS[k]||SKINS.default,h=s.h,d=s.d;let ears='',face='',over='';
+  const eyes=`<circle cx="43" cy="52" r="2.7" fill="#1e1b2e"/><circle cx="57" cy="52" r="2.7" fill="#1e1b2e"/>`;
+  switch(s.k){
+    case'panda':ears=sym(`<circle cx="27" cy="22" r="9" fill="#0f172a"/>`);face=`<ellipse cx="43" cy="52" rx="5" ry="4.2" fill="#0f172a"/><ellipse cx="57" cy="52" rx="5" ry="4.2" fill="#0f172a"/><circle cx="43.5" cy="51.5" r="1.6" fill="#fff"/><circle cx="57.5" cy="51.5" r="1.6" fill="#fff"/>`;break;
+    case'frog':ears=sym(`<circle cx="34" cy="18" r="9" fill="${h}" stroke="${d}" stroke-width="2"/><circle cx="34" cy="18" r="5" fill="#fff"/><circle cx="35" cy="18" r="2.6" fill="#0f172a"/>`);break;
+    case'owl':ears=sym(`<path d="M24 32L21 9L39 23Z" fill="${h}" stroke="${d}" stroke-width="2" stroke-linejoin="round"/>`);over=`<circle cx="43" cy="52" r="5.5" fill="none" stroke="#fbbf24" stroke-width="2"/><circle cx="57" cy="52" r="5.5" fill="none" stroke="#fbbf24" stroke-width="2"/>`;break;
+    case'dragon':ears=sym(`<path d="M32 24L25 5L41 19Z" fill="#fde047" stroke="#a16207" stroke-width="1.5"/>`)+`<path d="M44 16l6-9 6 9z" fill="#34d399" stroke="${d}" stroke-width="1.5"/>`;break;
+    case'unicorn':ears=sym(`<path d="M30 26L27 12L39 21Z" fill="${h}" stroke="${d}" stroke-width="1.5"/>`)+`<path d="M50 1L45 22H55Z" fill="#f472b6" stroke="#9d174d" stroke-width="1.5"/><path d="M46.5 16h7M47.5 10h5" stroke="#fde047" stroke-width="1.5"/>`;break;}
+  const head=s.k==='cap'
+    ?`<circle cx="50" cy="50" r="20" fill="#fcd9b6" stroke="#9a6b4b" stroke-width="2"/><path d="M29 44C29 22 71 22 71 44Z" fill="${h}" stroke="${d}" stroke-width="2.5"/><path d="M60 43H86" stroke="${d}" stroke-width="5" stroke-linecap="round"/><path d="M47 30l3-4 3 4" stroke="#fff" stroke-width="2" fill="none"/>`
+    :`<circle cx="50" cy="47" r="28" fill="${h}" stroke="${d}" stroke-width="2.5"/><circle cx="50" cy="52" r="18" fill="#fcd9b6"/>`;
+  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><path d="M22 100C22 78 33 70 50 70C67 70 78 78 78 100Z" fill="${h}" stroke="${d}" stroke-width="2.5"/>${ears}${head}${s.k==='cap'?'':''}${eyes}${face}${over}<ellipse cx="37" cy="59" rx="3.5" ry="2.2" fill="#fb7185" opacity=".5"/><ellipse cx="63" cy="59" rx="3.5" ry="2.2" fill="#fb7185" opacity=".5"/><path d="M46 60Q50 63 54 60" stroke="#7c2d12" stroke-width="2" fill="none" stroke-linecap="round"/></svg>`}
+
+/* ---------- OTHER DATA ---------- */
+const CRATES={
+  standard:{name:'Standard Crate',cost:500,icon:'📦',odds:{bamboo:40,moss:35,solar:20,dragon:4,aurora:1}},
+  mythic:{name:'Mythic Crate',cost:1500,icon:'🎁',odds:{bamboo:10,moss:15,solar:35,dragon:25,aurora:15}}};
+const COUPONS=[
+  {id:'greenbean',name:'GreenBean Café 20% Off',icon:'☕',cost:800,prefix:'GBC20'},
+  {id:'metro',name:'MetroCycle 30-Min Free Pass',icon:'🚲',cost:600,prefix:'MCY30'},
+  {id:'rebate',name:'$3 Green Transit Rebate',icon:'🚇',cost:1000,prefix:'GTR03'},
+  {id:'refill',name:'$10 Zero-Waste Refill Voucher',icon:'♻️',cost:2500,prefix:'ZWR10'}];
+const POTIONS={
+  heal:{name:'Heal',icon:'❤️',cost:300,desc:'Restores 50% of your champion’s max HP'},
+  power:{name:'Power',icon:'💥',cost:400,desc:'+50% damage on this turn’s attack'},
+  swift:{name:'Swift',icon:'👟',cost:350,desc:'Every GPS metre counts double this turn — half the walking'},
+  shield:{name:'Shield',icon:'🛡️',cost:300,desc:'Halves the rival’s next attack'}};
+const FRIENDS=[{n:'Mei L.',a:'bamboo',c:5820,k:24.6},{n:'Jun W.',a:'solar',c:4975,k:19.8},{n:'Alex T.',a:'moss',c:3890,k:15.2},{n:'Priya S.',a:'aurora',c:3120,k:13.9},{n:'Kenji M.',a:'dragon',c:2650,k:9.7},{n:'Sofia R.',a:'default',c:1980,k:8.1}];
+
+/* ---------- STATE ---------- */
+const KEY='ecotrackgo_v2';
+function defaults(){return{coins:3450,co2:12.4,streak:5,meters:0,speed:0,simSpeed:5,simGPS:false,transit:null,watch:false,berries:3,passes:0,intense:false,
+  potions:{heal:2,power:1,swift:1,shield:1},skinsOwned:['default'],skin:'default',squad:[{id:1,sp:'sproutling',lvl:3,xp:0,theme:'park',place:'Starter'}],champ:1,vouchers:[],rides:[],nextId:2,wins:0,bonusCoins:0,name:'Eco Ranger',seen:['sproutling']}}
+let S=(()=>{try{const r=localStorage.getItem(KEY);if(r){const o=Object.assign(defaults(),JSON.parse(r));o.speed=0;return o}}catch(e){}return defaults()})();
+// migrate older saves (CP-based monsters → levels & habitats)
+S.squad=S.squad.filter(m=>SPECIES[m.sp]).map(m=>({id:m.id,sp:m.sp,lvl:m.lvl||Math.max(1,Math.round((m.cp||60)/50)),xp:m.xp||0,theme:m.theme||'wild',place:m.place||''}));
+if(!S.squad.length)S.squad=defaults().squad;
+S.seen=S.seen.filter(k=>SPECIES[k]);
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+setInterval(save,2000);
+function resetAll(){if(!confirm('Reset all EcoTrack GO progress?'))return;try{localStorage.removeItem(KEY)}catch(e){}location.reload()}
+const dispName=m=>{const h=HAB[m.theme]||HAB.wild;return (h.adj?h.adj+' ':'')+SPECIES[m.sp].name};
+
+function toast(msg,cls=''){const t=document.createElement('div');t.className='toast '+cls;t.innerHTML=msg;$('#toasts').appendChild(t);
+  while($('#toasts').children.length>3)$('#toasts').firstChild.remove();setTimeout(()=>t.remove(),2800)}
+
+/* ---------- MODE / ECONOMY ---------- */
+function mode(){if(S.speed>25)return S.transit?'transit':'car';return S.speed<0.5?'idle':'walk'}
+let lastCarToast=0;
+function gainXP(m,x){if(!m)return;m.xp=(m.xp||0)+x;let up=false;while(m.lvl<30&&m.xp>=xpNeed(m.lvl)){m.xp-=xpNeed(m.lvl);m.lvl++;up=true}
+  if(up){toast(`⬆️ ${dispName(m)} reached <b>Lv ${m.lvl}</b>! (${perMetre(m).toFixed(2)} dmg/m)`,'gold');if(view==='squad')renderSquad();if(view==='arena')renderArena()}}
+// All rewards come from here, and award() is only ever called with distance measured between GPS fixes.
+function award(raw){
+  const m0=mode();
+  if(m0==='car'){if(Date.now()-lastCarToast>4000){lastCarToast=Date.now();toast('🚨 Car speed &gt;25 km/h without a Weixin transit tap — rewards paused','bad')}return 0}
+  const m=raw*(S.intense?2:1), walk=m0!=='transit';
+  let coins=m/10*(walk?5:2);
+  if(S.watch){S.bonusCoins+=coins*.15;coins*=1.15}
+  S.coins+=coins;
+  if(walk){S.co2+=m/10*0.002;gainXP(champ(),raw/10)} // buddy XP: 1 per 10 m walked
+  S.meters+=m;
+  if(enc&&enc.state==='chase'){enc.prog=Math.min(enc.req,enc.prog+m);if(enc.req-enc.prog<0.5)enc.prog=enc.req;renderEnc()}
+  if(AR.phase==='turn'){AR.raw+=raw;AR.meters+=m*(AR.swift?2:1);renderArenaLive()}
+  if(view==='map'&&coins>=1){const f=document.createElement('div');f.className='coinfloat';f.textContent=`+${Math.round(m)} m · +${Math.floor(coins)} 🪙`;$('#view-map').appendChild(f);setTimeout(()=>f.remove(),1100)}
+  hud();return m;
+}
+function spend(n){if(S.coins<n){toast(`Not enough EcoCoins — need ${fmt(n)} 🪙`,'bad');return false}S.coins-=n;hud(true);return true}
+function endIntense(reason){if(!S.intense)return;S.intense=false;hud();renderShop();renderPlayer();toast(`⚡ Intense Pass used up (${reason})`,'gold')}
+
+/* ---------- HUD & STATUS ---------- */
+let lastCoinsShown=-1;
+function hud(bump){
+  $('#hudCo2').innerHTML=S.co2.toFixed(3)+' <small>kg</small>';
+  const c=Math.floor(S.coins);$('#hudCoins').textContent=fmt(c);
+  if(bump||(lastCoinsShown>=0&&c!==lastCoinsShown)){const el=$('#hudCoins');el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump')}
+  lastCoinsShown=c;
+  $('#hudStreak').textContent='🔥 '+S.streak+'d';
+  $('#intenseBadge').classList.toggle('on',S.intense);
+  renderStatus();
+}
+function renderStatus(){
+  const m=mode(),st=$('#strip');let txt;
+  if(!geo.fix)txt=S.simGPS?'🧪 Simulator ready':'📡 Waiting for GPS fix…';
+  else if(m==='car')txt='🚨 Car Speed (&gt;25 km/h) • No Weixin Transit Tap';
+  else if(m==='transit')txt=`🚇 WeChat Pay: ${S.transit.type==='MTR'?'MTR QR OK':'Bus QR OK'} • +2 🪙/10m`;
+  else if(m==='idle')txt='⏸ Standing still • walk to move on the map';
+  else{const l=S.speed>=15?'🚲 Cycling':S.speed>=8?'🏃 Running':'🚶 Walking';txt=`${l} • +5 🪙 &amp; +0.002 kg/10m`}
+  st.className='strip '+(!geo.fix||m==='idle'?'idle':m==='car'?'bad':m==='transit'?'transit':'ok');
+  $('#stripMain').innerHTML=txt;
+  let chips=`<span class="chip">${S.simGPS?'🧪':'📡'} ${S.speed.toFixed(1)} km/h</span> `;
+  if(S.watch)chips+=`<span class="chip">⌚ ${bio.bpm} BPM +15%</span> `;
+  if(S.intense)chips+=`<span class="chip" style="color:var(--amber)">⚡2x</span>`;
+  $('#stripChips').innerHTML=chips;
+  $('#carflag').classList.toggle('on',!!geo.fix&&m==='car');
+  $('#arWarn').classList.toggle('on',m==='car');
+  const ew=$('#encWarn');if(ew)ew.classList.toggle('on',m==='car');
+}
+
+/* ---------- VIEWS ---------- */
+let view='map';
+function showView(v){view=v;$$('.view').forEach(e=>e.classList.toggle('active',e.id==='view-'+v));
+  $$('.nav button[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  if(v==='map'){MAP&&setTimeout(()=>MAP.resize(),30);checkProximity()} if(v==='shop')renderShop(); if(v==='squad')renderSquad(); if(v==='arena')renderArena();}
+$$('.nav button[data-v]').forEach(b=>b.onclick=()=>showView(b.dataset.v));
+
+function openDrawer(){renderDrawer();$('#drawer').classList.add('on');$('#scrim').classList.add('on')}
+function closeDrawer(){$('#drawer').classList.remove('on');$('#scrim').classList.remove('on')}
+$('#capsuleMenu').onclick=openDrawer;$('#navMenu').onclick=openDrawer;$('#scrim').onclick=closeDrawer;
+function toggleAcc(k){$('#acc-'+k).classList.toggle('open');renderDrawer()}
+
+/* =========================================================
+   GEO HELPERS
+   ========================================================= */
+const DEFAULT_POS={lat:22.2820,lng:114.1880}; // used only before the first fix / for the simulator
+const toRad=d=>d*Math.PI/180;
+function distM(a,b){const R=6371000,dLa=toRad(b.lat-a.lat),dLo=toRad(b.lng-a.lng);const h=Math.sin(dLa/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(h))}
+function bearing(a,b){const y=Math.sin(toRad(b.lng-a.lng))*Math.cos(toRad(b.lat)),x=Math.cos(toRad(a.lat))*Math.sin(toRad(b.lat))-Math.sin(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.cos(toRad(b.lng-a.lng));return(Math.atan2(y,x)*180/Math.PI+360)%360}
+function offsetM(p,dx,dy){return{lat:p.lat+dy/111320,lng:p.lng+dx/(111320*Math.cos(toRad(p.lat)))}}
+
+/* =========================================================
+   MAP — Google Maps (with key) or free Esri street map
+   ========================================================= */
+const GKEY='ecotrackgo_gmaps_key';
+const getKey=()=>{try{return localStorage.getItem(GKEY)||''}catch(e){return''}};
+const GSTYLE=[{elementType:'geometry',stylers:[{color:'#1d2c4d'}]},{elementType:'labels.text.fill',stylers:[{color:'#8ec3b9'}]},{elementType:'labels.text.stroke',stylers:[{color:'#1a3646'}]},
+  {featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]},{featureType:'poi.park',elementType:'geometry',stylers:[{color:'#14532d'}]},
+  {featureType:'road',elementType:'geometry',stylers:[{color:'#304a7d'}]},{featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#98a5be'}]},
+  {featureType:'transit',elementType:'geometry',stylers:[{color:'#2f3948'}]},{featureType:'water',elementType:'geometry',stylers:[{color:'#0e1626'}]}];
+let MAP=null,gFailed=false,follow=true;
+const markers={};
+function addMarker(id,pos,el,z){markers[id]={el,pos,z};MAP&&MAP.add(id,pos,el,z)}
+function moveMarker(id,pos){if(!markers[id])return;markers[id].pos=pos;MAP&&MAP.move(id,pos)}
+function delMarker(id){if(!markers[id])return;MAP&&MAP.remove(id);delete markers[id]}
+
+function leafletAdapter(el,c){
+  const map=L.map(el,{zoomControl:false}).setView([c.lat,c.lng],18);
+  // Esri street tiles work without a key or Referer (OSM's own servers block pages opened as local files).
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:20,maxNativeZoom:19,className:'osm-dark',attribution:'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors'}).addTo(map);
+  const circle=L.circle([c.lat,c.lng],{radius:0,color:'#38bdf8',weight:1,fillColor:'#38bdf8',fillOpacity:.12,interactive:false}).addTo(map);
+  map.on('dragstart',()=>setFollow(false));const ms={};
+  return{name:'Esri Street Map',
+    add(id,p,e,z){const m=L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:'',iconSize:[0,0]}),zIndexOffset:z||0,keyboard:false}).addTo(map);m.getElement().style.overflow='visible';m.getElement().appendChild(e);L.DomEvent.disableClickPropagation(e);ms[id]=m},
+    move(id,p){ms[id]&&ms[id].setLatLng([p.lat,p.lng])},
+    remove(id){if(ms[id]){map.removeLayer(ms[id]);delete ms[id]}},
+    accuracy(p,r){circle.setLatLng([p.lat,p.lng]);circle.setRadius(r)},
+    pan(p,z){z?map.setView([p.lat,p.lng],z):map.panTo([p.lat,p.lng])},
+    resize(){map.invalidateSize()},destroy(){map.remove()}}}
+
+function googleAdapter(el,c){
+  const map=new google.maps.Map(el,{center:c,zoom:18,disableDefaultUI:true,gestureHandling:'greedy',clickableIcons:false,styles:GSTYLE,backgroundColor:'#0b1222'});
+  class HM extends google.maps.OverlayView{constructor(p,e,z){super();this.p=p;this.e=e;this.z=z}
+    onAdd(){this.e.style.zIndex=this.z||0;google.maps.OverlayView.preventMapHitsAndGesturesFrom(this.e);this.getPanes().overlayMouseTarget.appendChild(this.e)}
+    draw(){const pr=this.getProjection();if(!pr)return;const pt=pr.fromLatLngToDivPixel(new google.maps.LatLng(this.p.lat,this.p.lng));if(pt){this.e.style.left=pt.x+'px';this.e.style.top=pt.y+'px'}}
+    onRemove(){this.e.remove()}}
+  const circle=new google.maps.Circle({map,center:c,radius:0,strokeColor:'#38bdf8',strokeWeight:1,fillColor:'#38bdf8',fillOpacity:.12,clickable:false});
+  map.addListener('dragstart',()=>setFollow(false));const ms={};
+  return{name:'Google Maps',
+    add(id,p,e,z){const o=new HM(p,e,z);o.setMap(map);ms[id]=o},
+    move(id,p){const o=ms[id];if(o){o.p=p;o.draw()}},
+    remove(id){if(ms[id]){ms[id].setMap(null);delete ms[id]}},
+    accuracy(p,r){circle.setCenter(p);circle.setRadius(r)},
+    pan(p,z){if(z)map.setZoom(z);map.panTo(p)},
+    resize(){},destroy(){el.innerHTML=''}}}
+
+function loadGoogle(key){if(window.google&&google.maps)return Promise.resolve();
+  return new Promise((res,rej)=>{window.__gmReady=res;const s=document.createElement('script');
+    s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__gmReady&v=weekly`;s.async=true;s.onerror=()=>rej(new Error('load'));document.head.appendChild(s)})}
+window.gm_authFailure=()=>{gFailed=true;toast('Google Maps rejected the API key — switched to the free map','bad');startMap()};
+
+async function startMap(){
+  const el=$('#map'),c=geo.fix||DEFAULT_POS,key=getKey();
+  if(MAP){try{MAP.destroy()}catch(e){}MAP=null;el.innerHTML='';el.className=''}
+  if(key&&!gFailed){try{await loadGoogle(key);MAP=googleAdapter(el,c)}catch(e){gFailed=true;toast('Could not load Google Maps — using the free map','bad')}}
+  if(!MAP){if(!window.L){$('#provider').textContent='⚠️ Map offline';return}MAP=leafletAdapter(el,c)}
+  for(const[id,m]of Object.entries(markers))MAP.add(id,m.pos,m.el,m.z);
+  if(geo.fix)MAP.accuracy(geo.fix,geo.acc||0);
+  $('#provider').textContent=(MAP.name==='Google Maps'?'🗺️ ':'🌍 ')+MAP.name;renderMapStatus()}
+function saveKey(){const k=$('#gkey').value.trim();if(!k)return toast('Paste a key first','bad');try{localStorage.setItem(GKEY,k)}catch(e){}
+  if(window.google&&google.maps&&gFailed){location.reload();return}gFailed=false;$('#gkey').value='';startMap();toast('🗺️ Loading Google Maps…')}
+function clearKey(){try{localStorage.removeItem(GKEY)}catch(e){}if(window.google&&google.maps){location.reload();return}gFailed=false;startMap()}
+function renderMapStatus(){const k=getKey();
+  $('#mapStatus').innerHTML=`<div class="title" style="font-size:13px">${MAP?MAP.name:'Loading…'}</div><div class="sub">${k?(gFailed?'Saved key failed — check billing / allowed referrers':'Google key saved (…'+k.slice(-4)+')'):'No Google key — free Esri street map'}<br>GPS: ${geoStatusText()}<br>Nearby places: ${POI.status}</div>`}
+
+/* =========================================================
+   GPS TRACKING — the only thing that moves the player
+   ========================================================= */
+const geo={fix:null,anchor:null,acc:null,heading:0,status:'off',err:'',lastMoveWall:0};
+let gpsWatch=null,simT=0,gateWait=false;
+function geoStatusText(){return{off:'off',waiting:'waiting for first fix…',live:`live ±${Math.round(geo.acc||0)} m`,weak:`weak signal ±${Math.round(geo.acc||0)} m`,sim:'simulator',denied:'permission denied',insecure:'needs HTTPS / localhost',unsupported:'not supported',error:'error — '+geo.err}[geo.status]}
+function setGeoStatus(s,err=''){geo.status=s;geo.err=err;
+  const p=$('#gpsPill');p.className='ovl pill gpspill '+(s==='live'?'live':s==='sim'?'sim':['denied','insecure','unsupported','error','weak'].includes(s)?'bad':'');
+  $('#gpsTxt').textContent=s==='sim'?'Simulator':'GPS '+geoStatusText();
+  const blocked=['denied','insecure','unsupported','error','off'].includes(s);
+  $('#gate').classList.toggle('on',!geo.fix&&!S.simGPS&&(blocked||(s==='waiting'&&gateWait)));
+  if(s==='denied'){$('#gateE').textContent='🚫';$('#gateT').textContent='Location permission blocked';$('#gateS').textContent='Allow location for this page in your browser settings, then tap Use my GPS.'}
+  if(s==='insecure'){$('#gateE').textContent='🔒';$('#gateT').textContent='GPS needs a secure page';$('#gateS').textContent='Open the game over HTTPS (or localhost) so the browser can share your location.'}
+  if(s==='unsupported'){$('#gateE').textContent='📵';$('#gateT').textContent='No GPS on this device';$('#gateS').textContent='This browser cannot share location. Use the simulator to test.'}
+  if(s==='waiting'){$('#gateE').textContent='🛰️';$('#gateT').textContent='Finding your location…';$('#gateS').textContent='Step outside or near a window for a better GPS signal.'}
+  if(s==='error'){$('#gateE').textContent='🛰️';$('#gateT').textContent='No GPS fix yet';$('#gateS').textContent=err||'Try again outdoors.'}
+  renderStatus();if($('#drawer').classList.contains('on'))renderMapStatus()}
+function startGPS(user){
+  if(S.simGPS){if(!user)return;setSim(false);return}
+  stopGPS();
+  if(!('geolocation'in navigator))return setGeoStatus('unsupported');
+  if(!window.isSecureContext)return setGeoStatus('insecure');
+  gateWait=!!user;setGeoStatus('waiting');
+  gpsWatch=navigator.geolocation.watchPosition(
+    p=>onFix({lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy,speed:p.coords.speed,t:p.timestamp}),
+    e=>{if(e.code===1)setGeoStatus('denied');else if(!geo.fix)setGeoStatus('error',e.message)},
+    {enableHighAccuracy:true,maximumAge:0,timeout:20000})}
+function stopGPS(){if(gpsWatch!=null)navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null}
+
+function onFix(f){
+  if(f.acc>45){geo.acc=f.acc;if(geo.fix)setGeoStatus('weak');return} // too inaccurate to trust
+  const first=!geo.fix;geo.fix=f;geo.acc=f.acc;setGeoStatus(S.simGPS?'sim':'live');
+  if(!geo.anchor){geo.anchor=f;placePlayer(f);if(first||follow)MAP&&MAP.pan(f,first?18:0);despawnFar(true);ensureWild();updateWild();fetchPOI(f);return}
+  const d=distM(geo.anchor,f),dt=Math.max(.001,(f.t-geo.anchor.t)/1000);
+  if(!S.simGPS&&f.speed!=null&&f.speed>=0)S.speed=+(f.speed*3.6).toFixed(1);
+  const thresh=Math.max(4,Math.min(15,f.acc*.6)); // ignore jitter while standing still
+  if(d>=thresh){
+    const kmh=d/dt*3.6;
+    if(kmh>200){geo.anchor=f}               // GPS jump / teleport – never rewarded
+    else{
+      if(S.simGPS)S.speed=+(f.speed*3.6).toFixed(1);else if(f.speed==null||f.speed<0)S.speed=+kmh.toFixed(1);
+      geo.heading=bearing(geo.anchor,f);geo.lastMoveWall=Date.now();geo.anchor=f;award(d)}
+  }
+  placePlayer(f);if(follow)MAP&&MAP.pan(f);
+  despawnFar();ensureWild();updateWild();fetchPOI(f);renderHabitat();checkProximity();hud()}
+setInterval(()=>{if(geo.fix&&S.speed>0&&Date.now()-geo.lastMoveWall>9000){S.speed=0;hud()}},1000);
+
+/* player marker */
+const pEl=document.createElement('div');pEl.className='mk';pEl.innerHTML='<div class="in pmk"><div class="parrow"></div><div class="pav"></div></div>';
+function renderPlayer(){pEl.querySelector('.pmk').classList.toggle('intense',S.intense);pEl.querySelector('.pav').innerHTML=trainerSVG(S.skin,40);pEl.querySelector('.parrow').style.transform=`rotate(${geo.heading}deg)`}
+function placePlayer(f){if(!markers.player)addMarker('player',f,pEl,1000);else moveMarker('player',f);MAP&&MAP.accuracy(f,f.acc);pEl.querySelector('.parrow').style.transform=`rotate(${geo.heading}deg)`}
+function setFollow(on){follow=on;$('#recenter').classList.toggle('on',on);if(on&&geo.fix)MAP&&MAP.pan(geo.fix)}
+$('#recenter').onclick=()=>{setFollow(true);toast('◎ Following your location')};
+
+/* =========================================================
+   NEARBY PLACES (OpenStreetMap Overpass) → spawn habitats
+   ========================================================= */
+const POI={list:[],at:null,loading:false,lastT:0,status:'not loaded yet'};
+function classify(t){
+  if(/^(stadium|pitch|sports_centre|track)$/.test(t.leisure||''))return'stadium';
+  if(t.natural==='beach')return'beach';
+  if(t.natural==='water'||t.natural==='bay'||t.waterway||t.leisure==='swimming_pool'||t.water)return'water';
+  if(/^(park|garden|nature_reserve)$/.test(t.leisure||'')||t.landuse==='forest'||t.natural==='wood')return'park';
+  if(t.railway==='station'||t.public_transport==='station')return'transit';
+  if(t.shop==='mall'||t.landuse==='retail'||t.landuse==='commercial')return'city';
+  return null}
+const ESRI_CATS={stadium:'Stadium,Sports Center,Athletic Field',water:'Lake,River,Reservoir,Bay,Swimming Pool',park:'Park,Garden,Forest,Nature Reserve',beach:'Beach',transit:'Train Station,Metro Station,Bus Station',city:'Shopping Center'};
+const timedFetch=(u,o={},ms=10000)=>{const ac=new AbortController(),t=setTimeout(()=>ac.abort(),ms);return fetch(u,{...o,signal:ac.signal}).finally(()=>clearTimeout(t))};
+// Primary source: Esri place search (fast, no key). Fallback: OpenStreetMap Overpass.
+async function esriPOI(p){const dLat=350/111320,dLng=350/(111320*Math.cos(toRad(p.lat)));
+  const ext=[p.lng-dLng,p.lat-dLat,p.lng+dLng,p.lat+dLat].map(v=>v.toFixed(5)).join(',');
+  const out=await Promise.all(Object.entries(ESRI_CATS).map(async([h,cat])=>{
+    const u=`https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&langCode=EN&category=${encodeURIComponent(cat)}&location=${p.lng.toFixed(5)},${p.lat.toFixed(5)}&searchExtent=${ext}&maxLocations=10&outFields=PlaceName`;
+    const j=await (await timedFetch(u)).json();if(j.error)throw new Error(j.error.message);
+    return(j.candidates||[]).map(c=>({hab:/pool|swim/i.test(c.attributes.PlaceName||'')?'water':h,lat:c.location.y,lng:c.location.x,name:c.attributes.PlaceName||c.address}))}));
+  const seen=new Set();return out.flat().filter(f=>{const k=f.hab+f.name;if(seen.has(k))return false;seen.add(k);return true})}
+async function fetchPOI(p){
+  if(POI.loading||(POI.at&&distM(POI.at,p)<250)||Date.now()-POI.lastT<15000)return;
+  POI.loading=true;POI.lastT=Date.now();POI.status='loading…';renderHabitat();
+  try{POI.list=await esriPOI(p);POI.at=p;POI.loading=false;POI.status=`${POI.list.length} places found (Esri)`;rethemeWild();renderHabitat();return}catch(e){}
+  const A=`(around:350,${p.lat.toFixed(5)},${p.lng.toFixed(5)})`;
+  const q=`[out:json][timeout:15];(nwr${A}["leisure"~"^(stadium|pitch|sports_centre|track|park|garden|nature_reserve|swimming_pool)$"];nwr${A}["natural"~"^(water|beach|wood|bay)$"];way${A}["waterway"~"^(river|canal)$"];nwr${A}["landuse"~"^(forest|retail|commercial)$"];nwr${A}["railway"="station"];nwr${A}["shop"="mall"];);out center tags 80;`;
+  let ok=false;
+  for(const ep of['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter']){
+    try{const r=await timedFetch(ep,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)},12000);if(!r.ok)continue;
+      const j=await r.json();
+      POI.list=j.elements.map(e=>{const t=e.tags||{},h=classify(t),lat=e.lat??e.center?.lat,lng=e.lon??e.center?.lon;if(!h||lat==null)return null;
+        return{hab:h,lat,lng,name:t['name:en']||t.name||({stadium:'sports ground',water:'water',park:'green space',beach:'beach',transit:'station',city:'shopping area'})[h]}}).filter(Boolean);
+      POI.at=p;ok=true;break}catch(e){}}
+  POI.loading=false;POI.status=ok?`${POI.list.length} places found (OSM)`:'unavailable (offline?) — spawns use wild themes';
+  if(ok)rethemeWild();renderHabitat()}
+function nearbyPOI(r=300){return geo.fix?POI.list.map(f=>({...f,d:distM(geo.fix,f)})).filter(f=>f.d<r).sort((a,b)=>a.d-b.d):[]}
+function currentPlace(){const n=nearbyPOI(260);return n.find(f=>f.d<120&&f.hab!=='city')||n.find(f=>f.hab==='stadium'&&f.d<200)||n[0]||null}
+function renderHabitat(){const el=$('#habPill');if(!geo.fix){el.textContent='🧭 Waiting for GPS…';return}
+  if(POI.loading&&!POI.list.length){el.textContent='🧭 Scanning nearby places…';return}
+  const c=currentPlace();el.textContent=c?`${HAB[c.hab].icon} Near ${c.name} · ${HAB[c.hab].label} Ecomon`:(POI.at?'🏙️ Streets · City Ecomon':'🌿 Wild Ecomon')}
+
+/* =========================================================
+   WILD ECOMON — placed at real coordinates around you
+   ========================================================= */
+let wild=[],wid=0;
+function pickSpecies(hab){const pref=HAB[hab].types;const arr=Object.entries(SPECIES).map(([k,s])=>[k,RAR[s.rarity].w*(pref.includes(s.type)?4:1)]);
+  let r=Math.random()*arr.reduce((a,b)=>a+b[1],0);for(const[k,w]of arr){if((r-=w)<0)return k}return'sproutling'}
+function spawn(){if(!geo.fix)return;
+  const near=nearbyPOI(300).filter(f=>!wild.some(w=>w.place===f.name));let hab='wild',place='',pos=null; // one Ecomon per place
+  if(near.length&&Math.random()<.85){const f=near[randInt(0,Math.min(near.length,6)-1)];hab=f.hab;place=f.name;
+    if(f.d<220)pos=offsetM(f,rand(-20,20),rand(-20,20))}       // appear AT the stadium / lake / park
+  else if(POI.at)hab='city';
+  if(!pos){const a=rand(0,Math.PI*2),d=rand(35,140);pos=offsetM(geo.fix,Math.cos(a)*d,Math.sin(a)*d)}
+  const sp=pickSpecies(hab),R=RAR[SPECIES[sp].rarity],lvl=clamp(randInt(R.lv[0],R.lv[1])+Math.floor(S.wins/3),1,30);
+  const w={id:'w'+(++wid),sp,lvl,theme:hab,place,lat:pos.lat,lng:pos.lng,req:randInt(R.req[0],R.req[1]),time:SPECIES[sp].rarity==='Legendary'?75:randInt(45,60),cool:0};
+  const e=document.createElement('div');e.className='mk';
+  e.innerHTML=`<div class="in wmk" style="--c:${TYPES[SPECIES[sp].type].col}"><span class="wring"></span><span class="wbadge"></span><span class="wem">${monArt(w,52)}</span>${hab!=='wild'?`<span class="whab">${HAB[hab].icon}</span>`:''}</div>`;
+  e.querySelector('.wmk').addEventListener('click',ev=>{ev.stopPropagation();tapMonster(w)});w.el=e;
+  wild.push(w);addMarker(w.id,w,e,500)}
+function ensureWild(){while(geo.fix&&wild.length<4)spawn()}
+function rethemeWild(){wild=wild.filter(w=>{if(enc&&enc.w===w)return true;delMarker(w.id);return false});ensureWild();updateWild()}
+function despawnFar(all){if(!geo.fix)return;wild=wild.filter(w=>{const d=distM(geo.fix,w);if((all&&d>300)||d>450){delMarker(w.id);return false}return true})}
+const dTo=w=>geo.fix?distM(geo.fix,w):Infinity;
+function updateWild(){for(const w of wild){const d=Math.round(dTo(w));w.el.querySelector('.wbadge').textContent=`Lv${w.lvl} · ${d} m`;w.el.querySelector('.wmk').classList.toggle('near',d<=40)}renderNearby()}
+function tapMonster(w){const d=dTo(w);if(d<=40)openEncounter(w);else toast(`${dispName(w)} is ${Math.round(d)} m away${w.place?' at '+w.place:''} — walk closer (within 40 m)`)}
+function checkProximity(){if(view!=='map'||enc||$('#modal').classList.contains('on'))return;
+  for(const w of wild){if(w.cool>Date.now())continue;if(dTo(w)<15){openEncounter(w);break}}}
+let lastNearbyKey='';
+function renderNearby(){const list=wild.map(w=>({w,d:Math.round(dTo(w))})).sort((a,b)=>a.d-b.d);
+  const key=list.map(o=>o.w.id+o.d).join();if(key===lastNearbyKey)return;lastNearbyKey=key;
+  $('#nearby').innerHTML=list.map(o=>`<button class="nb ${o.d<=40?'near':''}" data-id="${o.w.id}">${monArt(o.w,26)} ${SPECIES[o.w.sp].name} <b>${o.d}m</b></button>`).join('');
+  $$('#nearby .nb').forEach(b=>b.onclick=()=>{const w=wild.find(x=>x.id===b.dataset.id);if(!w)return;if(dTo(w)<=40)return openEncounter(w);setFollow(false);MAP&&MAP.pan(w);toast(`📍 ${dispName(w)} — ${Math.round(dTo(w))} m away${w.place?' at '+w.place:''}. Walk there!`)})}
+
+/* =========================================================
+   GPS SIMULATOR (Dev Lab only) — feeds fake fixes into onFix
+   ========================================================= */
+function setSim(on){S.simGPS=on;geo.anchor=null;
+  if(on){stopGPS();simT=Date.now();const b=geo.fix||DEFAULT_POS;S.speed=0;onFix({lat:b.lat,lng:b.lng,acc:5,speed:0,t:simT});toast('🧪 GPS Simulator on — use the purple D-pad')}
+  else{S.speed=0;startGPS(false);toast('📡 Live GPS on — walk for real to move')}
+  renderSimUI();renderDev();hud()}
+function simStep(deg,m=10){if(!S.simGPS)return;const kmh=S.simSpeed>0?S.simSpeed:5,ms=kmh/3.6,b=geo.fix||DEFAULT_POS;
+  const p=offsetM(b,Math.sin(toRad(deg))*m,Math.cos(toRad(deg))*m);simT+=m/ms*1000;onFix({lat:p.lat,lng:p.lng,acc:5,speed:ms,t:simT})}
+function simForward(m){simStep(geo.heading,m)}
+function setSimSpeed(v){S.simSpeed=+v;$('#spd').value=v;renderDev()}
+function renderSimUI(){$('#simpad').classList.toggle('on',S.simGPS);$('#arSim').classList.toggle('on',S.simGPS);$('#simBox').classList.toggle('on',S.simGPS);$('#simBox2').classList.toggle('on',S.simGPS);
+  const es=$('#encSim');if(es&&enc&&enc.state==='chase')es.classList.toggle('on',S.simGPS);$('#simToggle').classList.toggle('on',S.simGPS);
+  $('#arGps').textContent=S.simGPS?'🧪 Simulator on — Sim buttons fake walking (pace uses the simulated speed)':'📡 Walk with your phone — GPS metres charge your attack';
+  $('#simStatus').textContent=S.simGPS?'Uses the simulated speed and transit state. Rewards only — your map position does not move.':'Turn on the GPS Simulator to use these.'}
+$$('#simpad .dpad button').forEach(b=>b.onclick=()=>simStep(+b.dataset.d));
+addEventListener('keydown',e=>{if(!S.simGPS||e.target.tagName==='INPUT')return;const k={ArrowUp:0,ArrowRight:90,ArrowDown:180,ArrowLeft:270}[e.key];if(k!==undefined){e.preventDefault();simStep(k)}});
+
+/* =========================================================
+   WILD ENCOUNTER — Feed & Sprint (distance = real GPS metres)
+   ========================================================= */
+let enc=null,encTimer=null;
+function openEncounter(w){if(enc)return;const sp=SPECIES[w.sp],h=HAB[w.theme];
+  if(!S.seen.includes(w.sp))S.seen.push(w.sp);
+  enc={w,req:w.req,prog:0,time:w.time,total:w.time,fed:false,state:'chase'};
+  $('#mbox').className='mbox enc';
+  $('#mbox').innerHTML=`<div class="enc-top"><span>🌿 WILD ENCOUNTER</span><span class="timer" id="encT">${enc.time}s</span></div>
+   <div class="tbar"><i id="encTB" style="width:100%"></i></div>
+   <div class="arena-enc"><div class="aura" style="background:radial-gradient(${TYPES[sp.type].col}88,transparent 70%)"></div><span class="wild" id="wildE">${monArt(w,150)}</span><span class="ball" id="ball">${ballSVG}</span><span class="stars" id="stars">✨⭐✨</span></div>
+   <div style="text-align:center"><div class="title" style="font-size:18px">${dispName(w)} <span class="cp" style="color:var(--amber)">Lv ${w.lvl}</span></div>
+     <div style="margin:4px 0">${typeBadge(sp.type)} <span class="tag r-${sp.rarity}">${sp.rarity}</span></div>
+     <div class="sub">${w.place?`${h.icon} Found at <b>${w.place}</b> — ${h.note}.`:'Walk the distance for real before it escapes!'}</div></div>
+   <div class="steps"><div id="st1">1 · 🍓 Feed</div><div id="st2" class="cur">2 · 🏃 Sprint</div><div id="st3">3 · 🟢 Throw</div></div>
+   <div class="row" style="font-size:12px;font-weight:700;margin-bottom:4px"><span class="grow">GPS distance walked</span><span id="encD"></span></div>
+   <div class="pbar"><i id="encPB"></i></div>
+   <div class="livegps" style="margin-top:8px" id="encGps"></div>
+   <div class="warn" id="encWarn">🚨 Car speed detected — distance won't count. Slow down or tap a transit QR.</div>
+   <div class="simrow" id="encSim"><button class="btn p" onclick="simForward(10)">🧪 Sim +10m</button><button class="btn p" onclick="simForward(25)">🧪 Sim +25m</button></div>
+   <div class="encbtns" id="encBtns">
+     <button class="btn" id="feedBtn" onclick="feedBerry()">🍓 Feed Berry (<span id="bCnt">${S.berries}</span>)</button>
+     <button class="btn" onclick="fleeEnc()">🏳️ Run away</button>
+     <button class="btn g wide" id="throwBtn" onclick="throwBall()" disabled>Throw Eco-Ball</button>
+   </div>`;
+  $('#modal').classList.add('on');renderSimUI();renderEnc();renderStatus();
+  clearInterval(encTimer);encTimer=setInterval(()=>{if(!enc||enc.state!=='chase')return;enc.time-=.1;if(enc.time<=0){enc.time=0;encFled()}renderEnc()},100)}
+function renderEnc(){if(!enc)return;const p=enc.prog/enc.req;
+  $('#encT').textContent=Math.ceil(enc.time)+'s';$('#encT').classList.toggle('low',enc.time<10&&enc.state==='chase');
+  $('#encTB').style.width=enc.time/enc.total*100+'%';
+  $('#encD').textContent=`${enc.prog.toFixed(1)} / ${enc.req.toFixed(1)} m`;$('#encPB').style.width=p*100+'%';
+  $('#encGps').textContent=S.simGPS?`🧪 Simulator • ${S.speed.toFixed(1)} km/h`:`📡 GPS ${geoStatusText()} • ${S.speed.toFixed(1)} km/h — keep walking`;
+  $('#feedBtn').disabled=enc.fed||S.berries<1||enc.state!=='chase';$('#bCnt').textContent=S.berries;
+  $('#st1').className=enc.fed?'done':'';$('#st2').className=p>=1?'done':'cur';$('#st3').className=enc.state==='caught'?'done':p>=1?'cur':'';
+  $('#throwBtn').disabled=!(p>=1&&enc.state==='chase');
+  if(p>=1&&enc.state==='chase')$('#throwBtn').textContent='Throw Eco-Ball — ready!'}
+function feedBerry(){if(!enc||enc.fed||S.berries<1)return;S.berries--;enc.fed=true;enc.req=Math.round(enc.req*.7*10)/10;
+  const h=document.createElement('span');h.className='hearts';h.textContent='💕🍓💕';$('.arena-enc').appendChild(h);
+  toast(`🍓 ${SPECIES[enc.w.sp].name} is calm — sprint distance −30%`,'good');renderEnc()}
+function throwBall(){if(!enc||enc.prog<enc.req)return;enc.state='throwing';$('#encBtns').style.display='none';$('#encSim').classList.remove('on');
+  const b=$('#ball');b.className='ball throw';
+  setTimeout(()=>{$('#wildE').classList.add('gone');b.className='ball shake'},620);
+  setTimeout(()=>{b.className='ball';b.style.display='block';b.style.bottom='65px';$('#stars').style.display='block';enc.state='caught';caught()},620+1850)}
+function caught(){const w=enc.w,id=S.nextId++,m={id,sp:w.sp,lvl:w.lvl,xp:0,theme:w.theme,place:w.place};S.squad.push(m);
+  const bonus=50*(S.intense?2:1);S.coins+=bonus;hud(true);
+  $('#mbox').insertAdjacentHTML('beforeend',`<div style="text-align:center;margin-top:10px"><div class="title" style="font-size:17px;color:var(--green)">Gotcha! ${dispName(m)} joined your Squad</div><div class="sub">Lv ${m.lvl} • ${perMetre(m).toFixed(2)} dmg/m • +${bonus} 🪙 catch bonus</div>
+    <div class="grid2" style="margin-top:10px"><button class="btn" onclick="closeEnc();showView('squad')">🐾 View Squad</button><button class="btn g" onclick="closeEnc()">Continue</button></div></div>`);
+  renderEnc();endIntense('catch session complete')}
+function encFled(){enc.state='fled';const sp=SPECIES[enc.w.sp];$('#wildE').classList.add('gone');$('#encBtns').style.display='none';$('#encSim').classList.remove('on');
+  $('#mbox').insertAdjacentHTML('beforeend',`<div style="text-align:center;margin-top:10px"><div class="title" style="color:var(--red)">${sp.name} ran away!</div><div class="sub">Time ran out at ${enc.prog.toFixed(0)} / ${enc.req.toFixed(0)} m. Tip: feed a berry first.</div><button class="btn full" style="margin-top:10px" onclick="closeEnc()">Back to map</button></div>`);
+  endIntense('session ended')}
+function fleeEnc(){enc.w.cool=Date.now()+60000;enc.state='left';closeEnc(true)}
+function closeEnc(keep){clearInterval(encTimer);if(enc&&!keep){delMarker(enc.w.id);wild=wild.filter(x=>x!==enc.w);ensureWild();updateWild()}enc=null;$('#modal').classList.remove('on');hud()}
+
+/* =========================================================
+   ARENA — no walking = no damage; running = rival hits softer
+   ========================================================= */
+const AR={phase:'idle',rival:null,champHP:0,champMax:0,t:15,meters:0,raw:0,turn:0,power:false,swift:false,shield:false,usedHeal:false};let arTimer=null;
+function champ(){return S.squad.find(m=>m.id===S.champ)||S.squad[0]}
+const inBattle=()=>AR.phase==='ready'||AR.phase==='turn';
+function newRival(){const keys=Object.keys(RIVALS),k=keys[randInt(0,keys.length-1)],lvl=clamp(1+Math.floor(S.wins/2),1,30),max=70+lvl*10;
+  AR.rival={k,lvl,hp:max,max,atk:6+lvl*1.2}}
+function attackPow(){const c=champ();if(!c||AR.meters<1)return 0;return Math.round(AR.meters*perMetre(c)*eff(SPECIES[c.sp].type,RIVALS[AR.rival.k].type)*(AR.power?1.5:1))}
+function turnPace(){if(AR.raw<1)return 0;if(S.simGPS)return S.simSpeed||5;return Math.min(25,AR.raw/Math.max(5,15-AR.t)*3.6)} // real GPS pace, smoothed over ≥5 s
+function paceInfo(kmh){if(kmh<1)return{f:1,cls:'still',txt:'🧍 Standing still — you deal 0 damage and take full hits'};
+  if(kmh<8)return{f:.7,cls:'walk',txt:`🚶 Walking ${kmh.toFixed(1)} km/h — rival damage −30%`};
+  return{f:.4,cls:'run',txt:`🏃 Running ${kmh.toFixed(1)} km/h — rival damage −60%`}}
+function renderRivalCard(){const r=AR.rival,rd=RIVALS[r.k],strong=Object.keys(TYPES).filter(t=>TYPES[t].strong.includes(rd.type));
+  $('#rivalCard').innerHTML=`${monSVG(rd,'wild',48)}<div style="flex:1;min-width:0"><div class="title">${AR.phase==='idle'?'Next rival':'Rival'}: ${rd.name} <span class="price">Lv ${r.lvl}</span></div><div class="sub">${typeBadge(rd.type)} Counter with ${strong.map(typeBadge).join(' ')}</div></div>${AR.phase==='idle'||AR.phase==='over'?`<button class="btn sm" onclick="if(AR.phase==='over')AR.phase='idle';newRival();renderArena()">🔄</button>`:''}`}
+function renderArena(){if(!AR.rival)newRival();const c=champ(),rd=RIVALS[AR.rival.k];
+  $('#arenaPicks').innerHTML=S.squad.slice().sort((a,b)=>perMetre(b)-perMetre(a)).map(m=>{const e=eff(SPECIES[m.sp].type,rd.type);
+    return `<button class="pick ${c&&m.id===c.id?'on':''}" data-id="${m.id}" ${inBattle()?'disabled':''}>${monArt(m,30)} ${SPECIES[m.sp].name} Lv${m.lvl}${e>1?' 🔺':e<1?' 🔻':''}</button>`}).join('');
+  $$('#arenaPicks .pick').forEach(b=>b.onclick=()=>{S.champ=+b.dataset.id;if(AR.phase==='over')AR.phase='idle';renderArena()});
+  if(c){$('#champE').innerHTML=monArt(c,88);$('#champNm').innerHTML=`${SPECIES[c.sp].name} Lv${c.lvl} · ${perMetre(c).toFixed(2)}/m`}
+  $('#rivalE').innerHTML=monSVG(rd,'wild',88);$('#rivalNm').innerHTML=`${rd.name} Lv${AR.rival.lvl} ${TYPES[rd.type].icon}`;
+  if(AR.phase==='idle'&&c){AR.champMax=AR.champHP=maxHP(c)}
+  renderRivalCard();renderArenaLive()}
+function renderArenaLive(){if(!AR.rival)return;const hpb=(id,v,m)=>{$(id+' i').style.width=clamp(v/m*100,0,100)+'%';$(id).classList.toggle('low',v/m<.3)};
+  hpb('#rivalHPb',AR.rival.hp,AR.rival.max);hpb('#champHPb',AR.champHP,AR.champMax||1);
+  $('#arTimer').textContent=AR.t.toFixed(1)+'s';$('#arMeters').textContent=Math.round(AR.meters)+' m';$('#arDmg').textContent=attackPow();
+  const pi=AR.phase==='turn'?paceInfo(turnPace()):null,pe=$('#arPace');
+  if(pi){pe.className='pace '+pi.cls;pe.textContent=pi.txt}else{const c=champ();pe.className='pace';pe.innerHTML=c?`Matchup: ${SPECIES[c.sp].type} → ${RIVALS[AR.rival.k].type} = ${effTxt(eff(SPECIES[c.sp].type,RIVALS[AR.rival.k].type))}`:''}
+  $('#buffs').innerHTML=(AR.power?'<span>💥 +50% dmg</span>':'')+(AR.swift?'<span>👟 2× metres</span>':'')+(AR.shield?'<span>🛡️ shield</span>':'');
+  const p=S.potions;$('#arPotions').innerHTML=Object.entries(POTIONS).map(([k,v])=>{const active=AR[k]||(k==='heal'&&AR.usedHeal);
+    return `<button class="potion ${active?'used':''}" onclick="usePotion('${k}')" ${!inBattle()||!p[k]||active?'disabled':''} title="${v.desc}"><span class="n">×${p[k]||0}</span><span class="pi">${v.icon}</span>${v.name}</button>`}).join('');
+  $('#arMain').textContent={idle:'⚔️ Start Battle',ready:`▶ Start Turn ${AR.turn+1} (15s) — then walk!`,turn:'⏩ Attack now',over:'🔁 New Battle'}[AR.phase];
+  $('#arMain').className='btn full '+(AR.phase==='turn'?'a':'p')}
+function arLog(h){$('#arLog').insertAdjacentHTML('afterbegin',`<div>${h}</div>`)}
+function popDmg(sel,n,heal){const st=$('#stage'),el=document.createElement('div'),r=$(sel).getBoundingClientRect(),sr=st.getBoundingClientRect();el.className='dmgpop'+(heal?' heal':'');el.textContent=n===0?'MISS':(heal?'+':'-')+n;el.style.left=(r.left-sr.left+r.width/2)+'px';el.style.top=(r.top-sr.top)+'px';el.style.transform='translateX(-50%)';st.appendChild(el);setTimeout(()=>el.remove(),1000);
+  if(!heal&&n>0){$(sel).classList.remove('hit');void $(sel).offsetWidth;$(sel).classList.add('hit')}}
+function usePotion(k){if(!inBattle()||!S.potions[k])return;const v=POTIONS[k];
+  if(k==='heal'){if(AR.usedHeal)return;if(AR.champHP>=AR.champMax)return toast('Champion is already at full HP');const h=Math.min(AR.champMax-AR.champHP,Math.round(AR.champMax*.5));AR.champHP+=h;AR.usedHeal=true;popDmg('#champE',h,true);arLog(`❤️ Heal Potion → <b>+${h} HP</b>`)}
+  else{if(AR[k])return;AR[k]=true;arLog(`${v.icon} ${v.name} Potion: ${v.desc}`)}
+  S.potions[k]--;toast(`${v.icon} ${v.name} Potion used`,'good');renderArenaLive()}
+function arenaMain(){const c=champ();if(!c)return toast('Catch an Ecomon first!','bad');
+  if(AR.phase==='idle'||AR.phase==='over'){if(AR.phase==='over')newRival();AR.phase='idle';Object.assign(AR,{turn:0,meters:0,raw:0,t:15,power:false,swift:false,shield:false,usedHeal:false});renderArena();AR.phase='ready';$('#arLog').innerHTML='';
+    const rd=RIVALS[AR.rival.k];arLog(`<b>${dispName(c)}</b> (${c.lvl}) vs <b>${rd.name}</b> Lv${AR.rival.lvl} — ${effTxt(eff(SPECIES[c.sp].type,rd.type))}`);renderArena();return}
+  if(AR.phase==='ready'){AR.phase='turn';AR.t=15;AR.meters=0;AR.raw=0;renderArenaLive();clearInterval(arTimer);arTimer=setInterval(()=>{AR.t=Math.max(0,AR.t-.1);if(AR.t<=0)resolveTurn();else{$('#arTimer').textContent=AR.t.toFixed(1)+'s';const pi=paceInfo(turnPace());$('#arPace').className='pace '+pi.cls;$('#arPace').textContent=pi.txt}},100);return}
+  if(AR.phase==='turn')resolveTurn()}
+function battleOver(win){const c=champ(),r=AR.rival;AR.phase='over';clearInterval(arTimer);
+  const xp=win?40+10*r.lvl:15;
+  if(win){S.coins+=350;S.wins++;hud(true);arLog(`🏆 <b>Victory!</b> ${RIVALS[r.k].name} dissolves into clean air. <b class="price">+350 🪙</b> · +${xp} XP`);toast('🏆 Arena victory! +350 🪙','gold')}
+  else arLog(`💨 <b>Defeat.</b> ${SPECIES[c.sp].name} needs a rest — walk/run more each turn! +${xp} XP`);
+  gainXP(c,xp);endIntense('battle complete');renderArena()}
+function resolveTurn(){clearInterval(arTimer);const c=champ(),sp=SPECIES[c.sp],r=AR.rival,rd=RIVALS[r.k];AR.turn++;
+  const pace=turnPace(),pi=paceInfo(pace),dmg=attackPow(),e=eff(sp.type,rd.type);
+  r.hp-=dmg;popDmg('#rivalE',dmg);
+  arLog(dmg===0?`Turn ${AR.turn}: you didn't walk — <b>no damage</b>.`:`Turn ${AR.turn}: walked <b>${Math.round(AR.meters)} m</b>${AR.swift?' (👟 doubled)':''} × ${perMetre(c).toFixed(2)}/m${e!==1?` × ${e}`:''}${AR.power?' × 1.5 💥':''} → <b>${dmg}</b> dmg`);
+  Object.assign(AR,{meters:0,raw:0,t:15,power:false,swift:false,usedHeal:false});
+  if(r.hp<=0){r.hp=0;battleOver(true);return}
+  AR.phase='ready';
+  setTimeout(()=>{if(AR.phase==='over')return;const re=eff(rd.type,sp.type);let hit=Math.max(1,Math.round(r.atk*rand(.85,1.15)*re*pi.f));
+    if(AR.shield){hit=Math.max(1,Math.round(hit/2));AR.shield=false}
+    AR.champHP-=hit;popDmg('#champE',hit);arLog(`${rd.name} strikes → <b>${hit}</b> dmg <span style="opacity:.8">(${pi.cls==='run'?'🏃 your running cut it 60%':pi.cls==='walk'?'🚶 walking cut it 30%':'🧍 full hit — you stood still'}${re!==1?`, type ×${re}`:''})</span>`);
+    if(AR.champHP<=0){AR.champHP=0;battleOver(false)}renderArenaLive()},600);
+  renderArenaLive()}
+
+/* =========================================================
+   SHOP
+   ========================================================= */
+function buyPass(){if(spend(3000)){S.passes++;renderShop();toast('⚡ Intense Mode Pass added','gold')}}
+function activatePass(){if(S.intense)return toast('An Intense session is already running');if(S.passes<1)return toast('Buy a pass first','bad');
+  S.passes--;S.intense=true;hud();renderShop();renderPlayer();toast('⚡ INTENSE MODE: 2× distance & EcoCoins until this session ends','gold')}
+function buyBerries(){if(spend(250)){S.berries+=3;renderShop();toast('🍓 +3 Eco-Berries','good')}}
+function buyPotion(k){const v=POTIONS[k];if(spend(v.cost)){S.potions[k]=(S.potions[k]||0)+1;renderShop();renderArenaLive();toast(`${v.icon} +1 ${v.name} Potion`,'good')}}
+function buyMon(k){if(!spend(priceOf(k)))return;const m={id:S.nextId++,sp:k,lvl:1,xp:0,theme:'wild',place:'EcoShop'};S.squad.push(m);if(!S.seen.includes(k))S.seen.push(k);
+  renderShop();toast(`🐾 ${SPECIES[k].name} joined your Squad!`,'good')}
+function skinTile(k){const s=SKINS[k],own=S.skinsOwned.includes(k),eq=S.skin===k;
+  return `<div class="skin ${own?'':'locked'} ${eq?'eq':''}" ${own?`onclick="equip('${k}')" style="cursor:pointer"`:''}><span class="e">${trainerSVG(k,44)}</span>${s.name}<br><span class="r-${s.rarity}">${own?(eq?'✓ Equipped':s.rarity):'🔒 '+s.rarity}</span></div>`}
+function renderShop(){$('#passCount').textContent=S.passes;$('#berryCount').textContent=S.berries;
+  $('#activatePass').textContent=S.intense?'⚡ Active…':'Activate';$('#activatePass').disabled=S.intense||S.passes<1;
+  $('#market').innerHTML=Object.keys(SPECIES).sort((a,b)=>priceOf(a)-priceOf(b)).map(k=>{const s=SPECIES[k],m={sp:k,lvl:1},owned=S.squad.filter(x=>x.sp===k).length;
+    return `<div class="card" style="padding:8px 10px"><div class="row">${monSVG(s,'wild',54)}<div class="grow"><div class="title">${s.name} <span class="r-${s.rarity}" style="font-size:11px">${s.rarity}</span></div><div style="margin:2px 0">${typeBadge(s.type)}</div><div class="sub">⚔️ ${perMetre(m).toFixed(2)} dmg/m · ❤️ ${maxHP(m)} HP${owned?` · owned ×${owned}`:''}</div></div><button class="btn a sm" onclick="buyMon('${k}')">${fmt(priceOf(k))} 🪙</button></div></div>`}).join('');
+  $('#shopPotions').innerHTML=Object.entries(POTIONS).map(([k,v])=>`<div class="card"><div class="row"><div class="big-ic">${v.icon}</div><div class="grow"><div class="title">${v.name} Potion</div><div class="sub">${v.desc}. Owned: <b>${S.potions[k]||0}</b></div></div><button class="btn a sm" onclick="buyPotion('${k}')">${v.cost} 🪙</button></div></div>`).join('');
+  $('#crates').innerHTML=Object.entries(CRATES).map(([k,c])=>`<div class="card crate"><span class="ci">${c.icon}</span><div class="title">${c.name}</div>
+    <div class="odds">${Object.entries(c.odds).map(([s,w])=>`<span class="r-${SKINS[s].rarity}">${SKINS[s].name.split(' ')[0]} ${w}%</span>`).join(' · ')}</div>
+    <button class="btn ${k==='mythic'?'p':'a'} full" onclick="openCrate('${k}')">${fmt(c.cost)} 🪙</button></div>`).join('');
+  $('#shopSkins').innerHTML=Object.keys(SKINS).map(skinTile).join('');
+  $('#coupons').innerHTML=COUPONS.map(c=>`<div class="card"><div class="row"><div class="big-ic">${c.icon}</div><div class="grow"><div class="title">${c.name}</div><div class="sub">Partner eco-voucher • valid 30 days</div></div><button class="btn a sm" onclick="redeem('${c.id}')">${fmt(c.cost)} 🪙</button></div></div>`).join('');
+  renderWallet('#wallet1')}
+function renderWallet(sel){$(sel).innerHTML=S.vouchers.length?S.vouchers.slice().reverse().map(v=>`<div class="voucher"><span style="font-size:24px">${v.icon}</span><div style="flex:1;min-width:0"><div class="title" style="font-size:12.5px">${v.name}</div><div class="code">${v.code}</div><div class="sub">Expires ${v.exp}</div></div><button class="btn sm" onclick="copyCode('${v.code}')">Copy</button></div>`).join(''):'<div class="empty">No active vouchers yet — redeem EcoCoins for partner rewards.</div>'}
+function copyCode(c){try{navigator.clipboard.writeText(c)}catch(e){}toast('📋 Copied '+c)}
+function redeem(id){const c=COUPONS.find(x=>x.id===id);if(!spend(c.cost))return;
+  const r=()=>Math.random().toString(36).slice(2,6).toUpperCase().padEnd(4,'X'),d=new Date(Date.now()+30*864e5);
+  S.vouchers.push({name:c.name,icon:c.icon,code:`${c.prefix}-${r()}-${r()}`,exp:d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})});
+  renderShop();renderDrawer();toast(`🎟️ Redeemed: ${c.name}`,'good')}
+function openCrate(k){const c=CRATES[k];if(!spend(c.cost))return;
+  let r=Math.random()*100,pick='bamboo';for(const[s,w]of Object.entries(c.odds)){if((r-=w)<0){pick=s;break}}
+  const dup=S.skinsOwned.includes(pick);
+  $('#mbox').className='mbox';$('#mbox').innerHTML=`<div class="reveal" id="crateR"><span class="e crate-shake">${c.icon}</span><div class="title">Opening ${c.name}…</div></div>`;$('#modal').classList.add('on');
+  setTimeout(()=>{const s=SKINS[pick];let note;
+    if(dup){const ref=c.cost/2;S.coins+=ref;note=`Duplicate! <b class="price">+${fmt(ref)} 🪙</b> refunded (50%)`}else{S.skinsOwned.push(pick);note='New trainer outfit unlocked!'}
+    hud(true);renderShop();
+    $('#crateR').innerHTML=`<span class="e glow-${s.rarity}">${trainerSVG(pick,120)}</span><div class="tag r-${s.rarity}" style="font-size:12px;margin-top:6px">${s.rarity.toUpperCase()}</div><div class="title" style="font-size:18px;margin:6px 0">${s.name}</div><div class="sub">${note}</div>
+      <div class="grid2" style="margin-top:14px">${dup?'':`<button class="btn g" onclick="equip('${pick}');closeModal()">Equip</button>`}<button class="btn" onclick="closeModal()" ${dup?'style="grid-column:span 2"':''}>Close</button></div>`},1300)}
+function equip(k){S.skin=k;renderShop();renderDrawer();renderPlayer();toast(`Equipped ${SKINS[k].name}`,'good')}
+function closeModal(){$('#modal').classList.remove('on')}
+
+/* =========================================================
+   SQUAD
+   ========================================================= */
+function renderSquad(){const c=champ();$('#squadCount').textContent=S.squad.length;
+  $('#dex').innerHTML=Object.entries(SPECIES).map(([k,s])=>{const n=S.squad.filter(m=>m.sp===k).length,seen=S.seen.includes(k);return `<div class="${seen?'':'unseen'}">${monSVG(s,'wild',44)}${seen?s.name:'???'}<b style="color:var(--text)">×${n}</b></div>`}).join('');
+  $('#typeChart').innerHTML=Object.entries(TYPES).map(([t,v])=>`<div style="margin:3px 0">${typeBadge(t)} beats ${v.strong.map(typeBadge).join(' ')} <span style="opacity:.7">— ${v.why}</span></div>`).join('')+
+    `<div style="margin-top:6px">⚡ Volt hits hardest but is fragile · ⛰️ Terra hits softest but is toughest.</div>`;
+  $('#squadGrid').innerHTML=S.squad.slice().sort((a,b)=>perMetre(b)-perMetre(a)).map(m=>{const s=SPECIES[m.sp],ch=c&&c.id===m.id,h=HAB[m.theme]||HAB.wild;
+    return `<div class="mon ${ch?'champ':''}">${ch?'<span class="crown">👑</span>':''}<div class="art">${monArt(m,84)}</div><div class="title" style="font-size:13px">${dispName(m)}</div>
+    <div style="margin:3px 0">${typeBadge(s.type)} <span class="tag r-${s.rarity}">${s.rarity}</span></div>
+    <div class="cp" style="color:var(--amber);font-size:12px;font-weight:800">Lv ${m.lvl}${m.lvl>=30?' (MAX)':''}</div>
+    <div class="xpbar"><i style="width:${m.lvl>=30?100:Math.min(100,m.xp/xpNeed(m.lvl)*100)}%"></i></div>
+    <div class="statline"><span>⚔️ ${perMetre(m).toFixed(2)}/m</span><span>❤️ ${maxHP(m)}</span></div>
+    ${m.place?`<div class="sub" style="font-size:10.5px;margin-top:2px">${h.icon} ${m.place}</div>`:''}
+    <button class="btn sm ${ch?'':'g'} full" style="margin-top:6px" onclick="S.champ=${m.id};renderSquad();toast('👑 ${SPECIES[m.sp].name} is your champion — it earns XP as you walk')" ${ch?'disabled':''}>${ch?'Champion':'Set Champion'}</button></div>`}).join('')}
+
+/* =========================================================
+   DRAWER CONTENT
+   ========================================================= */
+let lbSort='c';
+$$('.seg button').forEach(b=>b.onclick=()=>{lbSort=b.dataset.sort;$$('.seg button').forEach(x=>x.classList.toggle('on',x===b));renderDrawer()});
+function renderDrawer(){$('#dAv').innerHTML=trainerSVG(S.skin,48);$('#dName').textContent=S.name;$('#dSub').textContent=`WeChat linked • ${(S.meters/1000).toFixed(2)} km tracked`;
+  const rows=[...FRIENDS,{n:S.name+' (You)',a:S.skin,c:Math.floor(S.coins),k:S.co2,me:1}].sort((a,b)=>b[lbSort]-a[lbSort]);
+  $('#lbList').innerHTML=rows.map((r,i)=>`<div class="lb ${r.me?'me':''}"><span class="rk">${i<3?['🥇','🥈','🥉'][i]:i+1}</span>${trainerSVG(r.a,28)}<span style="flex:1;font-weight:700">${r.n}</span><span class="${lbSort==='c'?'price':''}">${lbSort==='c'?fmt(r.c)+' 🪙':r.k.toFixed(1)+' kg'}</span></div>`).join('');
+  $('#lbSync').textContent='🔄 Auto-synced with WeChat friends • '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  renderWallet('#wallet2');
+  if(document.activeElement!==$('#nameInput'))$('#nameInput').value=S.name;
+  $('#profileStats').innerHTML=[['🚶',(S.meters/1000).toFixed(2)+' km'],['🐾',S.squad.length+' caught'],['🏆',S.wins+' wins']].map(([e,v])=>`<div class="skin"><span class="e">${e}</span>${v}</div>`).join('');
+  $('#profileSkins').innerHTML=Object.keys(SKINS).map(skinTile).join('');
+  renderMapStatus();renderDev()}
+$('#nameInput').oninput=e=>{S.name=e.target.value.trim()||'Eco Ranger';$('#dName').textContent=S.name};
+
+/* ---------- Dev Lab ---------- */
+$('#spd').oninput=e=>setSimSpeed(e.target.value);
+$('#simToggle').onclick=()=>setSim(!S.simGPS);
+$('#watchToggle').onclick=()=>{S.watch=!S.watch;renderDev();hud();toast(S.watch?'⌚ Smartwatch synced — +15% cadence bonus':'⌚ Smartwatch disconnected')};
+function renderDev(){const v=S.simSpeed;$('#spdVal').textContent=v.toFixed(1);
+  const m=v>25?(S.transit?'TRANSIT ✓':'🚨 CAR'):v===0?'IDLE':v>=15?'CYCLE':v>=8?'RUN':'WALK';$('#spdMode').textContent=m;
+  $('#spdMode').style.color=m.includes('CAR')?'#f87171':m.includes('TRANSIT')?'#7dd3fc':'#6ee7b7';
+  $('#simToggle').classList.toggle('on',S.simGPS);$('#watchToggle').classList.toggle('on',S.watch);
+  $('#transitStatus').innerHTML=S.transit?`<div class="row"><span style="font-size:24px">${S.transit.type==='MTR'?'🚇':'🚌'}</span><div class="grow"><div class="title" style="color:#7dd3fc">WeChat Pay: ${S.transit.type==='MTR'?'MTR QR OK':'Bus QR OK'}</div><div class="sub">Tapped in ${S.transit.time} • speeds &gt;25 km/h verified as public transit (+2 🪙/10m)</div></div></div>`
+    :`<div class="sub">No active ride code. Moving &gt;25 km/h without a tap-in is flagged as a private car/taxi.</div>`;
+  $('#rideLog').innerHTML=S.rides.length?S.rides.slice(-5).reverse().map(r=>`<div class="ride"><span>${r.icon}</span><span>${r.txt}</span><span>${r.time}</span></div>`).join(''):'<div class="sub">No rides yet.</div>';
+  $('#bpm').textContent=S.watch?bio.bpm:'--';$('#spm').textContent=S.watch?bio.spm:'--';$('#bonusV').textContent=S.watch?'+'+fmt(S.bonusCoins):'—'}
+const now=()=>new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+function tapTransit(type){if(S.transit)return toast(`Already tapped in (${S.transit.type}). Exit first.`,'bad');
+  const fare=type==='MTR'?rand(4.5,18.9):rand(3.2,9.8);S.transit={type,time:now(),fare};
+  S.rides.push({icon:type==='MTR'?'🚇':'🚌',txt:`${type==='MTR'?'MTR Ride Code':'City Bus QR'} tap-in • HK$${fare.toFixed(1)}`,time:now()});
+  renderDev();hud();toast(`✅ WeChat Pay: ${type==='MTR'?'MTR QR OK':'Bus QR OK'}`,'good')}
+function exitTransit(){if(!S.transit)return toast('No active transit ride');S.rides.push({icon:'🚶',txt:`Exit • ${S.transit.type} trip settled HK$${S.transit.fare.toFixed(1)}`,time:now()});S.transit=null;
+  renderDev();hud();toast('🚶 Exited station — back to walking mode')}
+
+/* ---------- Biometrics (simulated watch, driven by real speed) ---------- */
+const bio={bpm:72,spm:0};
+setInterval(()=>{const m=mode(),sp=S.speed;
+  const tB=m==='idle'?70:m==='walk'?78+sp*4.5:m==='transit'?84:92,tS=m==='walk'?Math.round(sp<=8?95+sp*6:140+(sp-8)*1.8):0;
+  bio.bpm=Math.round(bio.bpm+(tB-bio.bpm)*.35+rand(-2,2));bio.spm=tS?Math.max(0,Math.round(tS+rand(-4,4))):0;
+  if(S.watch)renderStatus();if($('#drawer').classList.contains('on'))renderDev()},1000);
+
+/* ---------- Timed walk simulator (simulator mode only; rewards only, map does not move) ---------- */
+let simming=false;
+function simWalk(min){if(simming||!S.simGPS)return;const sp=S.simSpeed>0?S.simSpeed:5,prev=S.speed;S.speed=sp;const m0=mode();
+  if(m0==='car'){S.speed=prev;toast('🚨 Car speed — simulated trip earns nothing. Tap a transit QR or slow down.','bad');return}
+  const total=sp/3.6*60*min,steps=25,c0=S.coins,k0=S.co2;simming=true;let i=0;
+  const iv=setInterval(()=>{S.speed=sp;award(total/steps);i++;$('#simStatus').textContent=`Simulating ${min} min @ ${sp} km/h… ${Math.round(i/steps*100)}%`;
+    if(i>=steps){clearInterval(iv);simming=false;S.speed=prev;const msg=`✅ ${min} min ${m0==='transit'?'ride':'walk'}: ${(total*(S.intense?2:1)/1000).toFixed(2)} km • +${fmt(S.coins-c0)} 🪙 • +${(S.co2-k0).toFixed(3)} kg CO₂`;
+      $('#simStatus').textContent=msg;toast(msg,'good');endIntense('workout complete');hud(true)}},80)}
+
+/* ---------- Moments poster ---------- */
+const svgImg=s=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s)});
+async function makePoster(){const c=document.createElement('canvas');c.width=600;c.height=900;const g=c.getContext('2d');
+  const ch=champ(),[tImg,mImg]=await Promise.all([svgImg(trainerSVG(S.skin,200)),ch?svgImg(monArt(ch,170)):null]);
+  const gr=g.createLinearGradient(0,0,0,900);gr.addColorStop(0,'#064e3b');gr.addColorStop(.6,'#0f172a');gr.addColorStop(1,'#020617');g.fillStyle=gr;g.fillRect(0,0,600,900);
+  g.fillStyle='rgba(16,185,129,.15)';for(let i=0;i<14;i++){g.beginPath();g.arc(Math.random()*600,Math.random()*500,Math.random()*60+10,0,7);g.fill()}
+  g.textAlign='center';g.fillStyle='#10b981';g.font='bold 30px sans-serif';g.fillText('EcoTrack GO',300,64);
+  g.fillStyle='#94a3b8';g.font='18px sans-serif';g.fillText('My green impact this season',300,96);
+  g.fillStyle='rgba(16,185,129,.25)';g.beginPath();g.arc(300,230,105,0,7);g.fill();
+  if(tImg)g.drawImage(tImg,150,128,200,200);if(mImg)g.drawImage(mImg,350,170,170,170);
+  g.fillStyle='#fff';g.font='bold 30px sans-serif';g.fillText(S.name,300,370);g.fillStyle='#fbbf24';g.font='bold 18px sans-serif';
+  g.fillText(`${SKINS[S.skin].name} • 🔥 ${S.streak}-day streak${ch?' • '+SPECIES[ch.sp].name+' Lv'+ch.lvl:''}`,300,400);
+  const box=(x,y,v,l,col)=>{g.fillStyle='rgba(30,41,59,.9)';g.beginPath();g.roundRect(x,y,250,120,18);g.fill();g.fillStyle=col;g.font='bold 40px sans-serif';g.fillText(v,x+125,y+62);g.fillStyle='#94a3b8';g.font='16px sans-serif';g.fillText(l,x+125,y+95)};
+  box(40,430,S.co2.toFixed(2)+' kg','CO₂ saved','#34d399');box(310,430,fmt(S.coins),'EcoCoins','#fbbf24');box(40,570,(S.meters/1000).toFixed(1)+' km','Green distance','#7dd3fc');box(310,570,S.squad.length+'','Ecomon caught','#c4b5fd');
+  g.fillStyle='#fff';g.fillRect(60,730,120,120);g.fillStyle='#0f172a';for(let i=0;i<10;i++)for(let j=0;j<10;j++)if(Math.random()<.5||((i<3||i>6)&&(j<3||j>6)&&!(i%3==1&&j%3==1)))g.fillRect(66+i*10.8,736+j*10.8,10.8,10.8);
+  g.textAlign='left';g.fillStyle='#e2e8f0';g.font='bold 22px sans-serif';g.fillText('Walk. Ride. Catch.',210,775);g.fillStyle='#94a3b8';g.font='17px sans-serif';g.fillText('Scan to join me on EcoTrack GO',210,808);g.fillText('🌍 Every step counts',210,838);
+  $('#mbox').className='mbox';$('#mbox').innerHTML=`<div class="title" style="margin-bottom:8px">📸 WeChat Moments Poster</div><img class="poster" src="${c.toDataURL('image/png')}" alt="Impact poster"><div class="sub" style="margin:8px 0">Long-press the image to save, or share to Moments.</div>
+    <div class="grid2"><button class="btn g" onclick="toast('✅ Shared to WeChat Moments (demo)','good');closeModal()">Share to Moments</button><button class="btn" onclick="closeModal()">Close</button></div>`;
+  closeDrawer();$('#modal').classList.add('on')}
+
+/* ---------- INIT ---------- */
+$('#spd').value=S.simSpeed;
+hud();renderShop();renderArena();renderSquad();renderDev();renderSimUI();renderPlayer();renderHabitat();
+startMap().then(()=>{if(S.simGPS){S.simGPS=false;setSim(true)}else startGPS(false)});
+</script>
+</body>
+</html>
