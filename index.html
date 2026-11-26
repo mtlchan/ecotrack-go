@@ -611,7 +611,7 @@ const FRIENDS=[{n:'Mei L.',a:'bamboo',c:5820,k:24.6},{n:'Jun W.',a:'solar',c:497
 
 /* ---------- STATE ---------- */
 const KEY='ecotrackgo_v2';
-function defaults(){return{ver:3,coins:500,co2:0,days:{},bike:null,meters:0,speed:0,simSpeed:5,simGPS:false,transit:null,watch:false,berries:3,passes:0,intense:false,
+function defaults(){return{ver:3,coins:500,co2:0,days:{},bike:null,stride:.72,stepDays:{},stepCounts:{},stepM:0,meters:0,speed:0,simSpeed:5,simGPS:false,transit:null,watch:false,berries:3,passes:0,intense:false,
   potions:{heal:2,power:1,swift:1,shield:1},skinsOwned:['default'],skin:'default',squad:[{id:1,sp:'sproutling',lvl:3,xp:0,theme:'park',place:'Starter'}],champ:1,vouchers:[],rides:[],nextId:2,wins:0,bonusCoins:0,name:'Eco Ranger',seen:['sproutling']}}
 let S=(()=>{try{const r=localStorage.getItem(KEY);if(r){const o=Object.assign(defaults(),JSON.parse(r));o.speed=0;return o}}catch(e){}return defaults()})();
 // migrate older saves (CP-based monsters → levels & habitats)
@@ -641,7 +641,8 @@ const CO2_LABEL={walk:'Walk / run',cycle:'Bike-share',mtr:'MTR / rail',bus:'Bus'
 const BLOCKED={
   car:'🚨 Car Speed (&gt;25 km/h) • No Weixin Transit Tap',
   fast:'🚨 15–25 km/h with no bike check-in — scan a bike-share QR if cycling',
-  nosteps:'🚨 Moving but no steps detected — in a vehicle? Rewards paused'};
+  nosteps:'🚨 Moving but no steps detected — in a vehicle? Rewards paused',
+  mismatch:'🚨 Moving much faster than your steps — in a vehicle? Rewards paused'};
 function mode(){
   if(S.speed<0.5)return'idle';
   if(S.transit)return'transit';
@@ -694,6 +695,7 @@ function renderStatus(){
   if(!geo.fix)txt=S.simGPS?'🧪 Simulator ready':'📡 Waiting for GPS fix…';
   else if(BLOCKED[m])txt=BLOCKED[m];
   else if(m==='transit')txt=`${S.transit.type==='MTR'?'🚇':'🚌'} WeChat Pay: ${S.transit.type==='MTR'?'MTR QR OK':'Bus QR OK'} • +2 🪙/10m · ${CO2_PER_KM[kindOf(m)]} kg CO₂/km`;
+  else if(m==='idle'&&!S.transit&&steps.state==='active'&&steps.cadence()>=60)txt=`👣 ${steps.cadence()} steps/min • exercise +${STEP.rate} 🪙/10m — CO₂ added once GPS confirms you travelled`;
   else if(m==='idle')txt=S.transit?`⏸ Tapped in (${S.transit.type}) • waiting to move`:'⏸ Standing still • walk to move on the map';
   else if(m==='cycle')txt=`🚲 Bike-share ride • +5 🪙/10m · ${CO2_PER_KM.cycle} kg CO₂/km`;
   else{const l=S.speed>=8?'🏃 Running':'🚶 Walking';txt=`${l} • +5 🪙/10m · ${CO2_PER_KM.walk} kg CO₂/km`}
@@ -834,27 +836,30 @@ function onFix(f){
   geo.hist.push(f);while(geo.hist.length&&f.t-geo.hist[0].t>60000)geo.hist.shift();
   if(!geo.anchor){geo.anchor=f;placePlayer(f);if(first||follow)MAP&&MAP.pan(f,first?18:0);despawnFar(true);ensureWild();updateWild();fetchPOI(f);return}
   const gap=prevT?(f.t-prevT)/1000:0;
-  if(gap>TRACK.gapS&&!S.simGPS){ // GPS was lost: only a tapped-in transit ride may be credited across the gap
+  if(gap>TRACK.gapS&&!S.simGPS){ // GPS was lost: a tapped-in ride, or walking proven by steps, may be credited across the gap
     const d=distM(geo.anchor,f),kmh=d/((f.t-geo.anchor.t)/1000)*3.6;
     if(S.transit&&d>50&&kmh<=90){const sp=S.speed;S.speed=Math.max(kmh,1);award(d);S.speed=sp;toast(`${S.transit.type==='MTR'?'🚇':'🚌'} Ride across GPS gap: ${(d/1000).toFixed(2)} km counted as ${S.transit.type}`,'good')}
-    else if(d>50)toast(`📵 GPS was off for ${Math.round(gap/60)} min — ${(d/1000).toFixed(2)} km not counted (tap a ride code before travelling underground)`,'bad');
+    else{const up=upgradeSteps(d,true);
+      if(d>50&&d-up>50)toast(`📵 GPS was off for ${Math.round(gap/60)} min — ${up>0?Math.round(up)+' m of your steps confirmed as travel; the rest of ':''}${(d/1000).toFixed(2)} km not counted (tap a ride code before riding underground)`,'bad')}
     geo.anchor=f;geo.hist=[f];S.speed=0;geo.moving=false;afterFix(f);return}
-  let moving,kmh;
+  let moving,kmh,net=0;
   if(S.simGPS){moving=f.speed>0;kmh=f.speed*3.6}
   else{
-    const old=geo.hist.find(h=>f.t-h.t<=TRACK.winMax*1000)||geo.hist[0],wdt=(f.t-old.t)/1000,net=distM(old,f);
+    const old=geo.hist.find(h=>f.t-h.t<=TRACK.winMax*1000)||geo.hist[0],wdt=(f.t-old.t)/1000;net=distM(old,f);
     const devKmh=f.speed!=null&&f.speed>=0?f.speed*3.6:null;
     kmh=wdt>0?net/wdt*3.6:0;
     moving=wdt>=TRACK.winMin&&f.acc<=TRACK.credAcc&&net>=Math.max(15,1.2*f.acc)&&kmh>=TRACK.minKmh&&(devKmh==null||devKmh>=TRACK.minKmh);
     if(moving&&devKmh!=null)kmh=Math.max(kmh,devKmh);  // never let a momentary slow reading hide a fast segment
   }
-  geo.moving=moving;S.speed=moving?+kmh.toFixed(1):0;
+  const was=geo.moving;geo.moving=moving;S.speed=moving?+kmh.toFixed(1):0;
+  if(moving&&!was&&!S.simGPS)upgradeSteps(net);       // GPS just confirmed travel: the steps that started this walk now count as green travel
   if(!moving){geo.anchor=f}                            // stationary: re-anchor so drift never accumulates
   else{const d=distM(geo.anchor,f),segKmh=d/Math.max(.001,(f.t-geo.anchor.t)/1000)*3.6;
     if(d>=Math.max(5,.5*f.acc)){
       if(segKmh>200)geo.anchor=f;                      // teleport / glitch – never rewarded
       else{if(segKmh>S.speed&&!S.simGPS)S.speed=+Math.min(segKmh,kmh*1.5).toFixed(1);
-        geo.heading=bearing(geo.anchor,f);geo.lastMoveWall=Date.now();geo.anchor=f;award(d)}}}
+        geo.heading=bearing(geo.anchor,f);geo.lastMoveWall=Date.now();const a0=geo.anchor;geo.anchor=f;
+        const cred=fuseSteps(d,a0,f);if(cred>0)award(cred)}}}
   autoEndRides();afterFix(f)}
 function afterFix(f){placePlayer(f);if(follow)MAP&&MAP.pan(f);despawnFar();ensureWild();updateWild();fetchPOI(f);renderHabitat();checkProximity();hud()}
 // Tap-ins end automatically: after 4 min of walking pace, or after 2 h (MTR/bus) / 2 h (bike)
@@ -865,12 +870,63 @@ function autoEndRides(){const now=Date.now(),walking=S.speed>=2&&S.speed<=7;
   if(S.bike&&(walked4||now-S.bike.since>7200000)){endBike(true);toast('🅿️ Bike ride ended automatically','gold')}}
 setInterval(()=>{if(geo.fix&&S.speed>0&&Date.now()-geo.lastMoveWall>15000&&!geo.moving){S.speed=0;hud()}},1000);
 
-/* ---------- Step sensor ---------- */
-const steps={state:'off',times:[],lp:9.8,last:0,above:false,
-  cadence(){const now=Date.now();this.times=this.times.filter(t=>now-t<20000);return this.times.length*3}};
+/* ---------- Step sensor (accelerometer pedometer) ----------
+   Steps are detected from the phone's accelerometer. Only *regular* rhythms count: a bout needs 5 peaks
+   280–1500 ms apart with steady timing, so random shaking or bumps are ignored.
+   How steps and GPS work together:
+   • GPS distance is capped at what your steps could cover (steps × stride × 1.3 + 5 m).
+   • GPS much faster than your step pace = vehicle → blocked.
+   • Your stride is learnt from good-GPS walks.
+   • Steps with no GPS movement (indoors, weak signal, start of a walk) earn exercise coins & XP but no CO₂;
+     if GPS later confirms you travelled, those metres are upgraded to green travel (CO₂ + streak). */
+const STEP={rate:3,dailyCap:3000,confirmWindow:180000};
+const steps={state:'off',times:[],unc:0,calD:0,calN:0,unconf:[],pending:[],bout:false,mean:9.8,lp:0,above:false,lastPeak:0,lastTick:0,
+  clock:()=>Date.now(),
+  cadence(){const now=this.clock();this.times=this.times.filter(t=>now-t<20000);return Math.round(this.times.length*3)}};
+const strideAt=c=>S.stride*(c>140?1.35:1);   // running strides are longer
 function onMotion(e){const a=e.accelerationIncludingGravity;if(!a||a.x==null)return;if(steps.state!=='active'){steps.state='active';renderDev()}
-  const mag=Math.hypot(a.x,a.y,a.z);steps.lp=steps.lp*.75+mag*.25;const now=Date.now();
-  if(!steps.above&&steps.lp>11.3&&now-steps.last>280){steps.above=true;steps.last=now;steps.times.push(now)}else if(steps.lp<10.2)steps.above=false}
+  processAccel(Math.hypot(a.x,a.y,a.z),steps.clock())}
+function processAccel(mag,now){
+  steps.mean+=(mag-steps.mean)*.02;steps.lp+=((mag-steps.mean)-steps.lp)*.35;   // remove gravity, smooth
+  if(!steps.above&&steps.lp>1.0&&now-steps.lastPeak>260){steps.above=true;stepPeak(now)}else if(steps.lp<.3)steps.above=false;
+  if(now-steps.lastTick>5000){steps.lastTick=now;stepTick()}}
+function stepPeak(now){const gap=now-steps.lastPeak;steps.lastPeak=now;
+  if(gap>2000){steps.bout=false;steps.pending=[now];return}
+  if(steps.bout){acceptStep(now);return}
+  steps.pending.push(now);
+  if(steps.pending.length>=5){const P=steps.pending,iv=P.slice(1).map((t,i)=>t-P[i]),m=iv.reduce((a,b)=>a+b)/iv.length,sd=Math.sqrt(iv.reduce((a,b)=>a+(b-m)**2,0)/iv.length);
+    if(m>=280&&m<=1500&&sd/m<.3){steps.bout=true;P.forEach(acceptStep);steps.pending=[]}else P.shift()}}
+function acceptStep(t){steps.times.push(t);steps.unc++;const dk=dayKey();S.stepCounts[dk]=(S.stepCounts[dk]||0)+1}
+// Steps not covered by GPS movement → exercise distance
+function stepTick(){const now=steps.clock();if(steps.state!=='active'||!steps.unc)return;
+  if(S.transit||S.bike||S.simGPS){steps.unc=0;return}
+  if(geo.moving&&geo.fix&&now-geo.fix.t<15000)return;        // GPS is tracking this walk; fuseSteps uses these steps
+  const m=steps.unc*strideAt(steps.cadence());steps.unc=0;awardSteps(m)}
+setInterval(stepTick,5000);
+function awardSteps(m){const dk=dayKey(),used=S.stepDays[dk]||0,cm=Math.min(m,Math.max(0,STEP.dailyCap-used));
+  if(cm<=0){if(Date.now()-lastCarToast>60000){lastCarToast=Date.now();toast(`👣 Daily step-only limit reached (${STEP.dailyCap/1000} km) — go outside so GPS can verify your trip`,'gold')}return}
+  S.stepDays[dk]=used+cm;S.stepM+=cm;steps.unconf.push({t:steps.clock(),m:cm});
+  const game=cm*(S.intense?2:1);S.coins+=game/10*STEP.rate;gainXP(champ(),cm/10);
+  if(enc&&enc.state==='chase'){enc.prog=Math.min(enc.req,enc.prog+game);if(enc.req-enc.prog<0.5)enc.prog=enc.req;renderEnc()}
+  if(AR.phase==='turn'){AR.raw+=cm;AR.meters+=game*(AR.swift?2:1);renderArenaLive()}
+  if(view==='map'&&cm>=3){const f=document.createElement('div');f.className='coinfloat';f.textContent=`👣 +${Math.round(cm)} m · +${Math.floor(game/10*STEP.rate)} 🪙`;$('#view-map').appendChild(f);setTimeout(()=>f.remove(),1100)}
+  hud()}
+// GPS has confirmed real travel of up to maxM metres: upgrade recent step-only metres to green travel
+function upgradeSteps(maxM,quiet){const now=steps.clock();steps.unconf=steps.unconf.filter(u=>now-u.t<STEP.confirmWindow);
+  const tot=steps.unconf.reduce((a,u)=>a+u.m,0),up=Math.min(tot,maxM);steps.unconf=[];if(up<1)return 0;
+  const dk=dayKey();S.co2+=up/1000*CO2_PER_KM.walk;S.meters+=up;S.days[dk]=(S.days[dk]||0)+up;S.stepDays[dk]=Math.max(0,(S.stepDays[dk]||0)-up);
+  S.coins+=up/10*(5-STEP.rate)*(S.intense?2:1);
+  if(!quiet&&up>=10)toast(`✅ GPS confirmed ${Math.round(up)} m of your steps as travel (+${(up/1000*CO2_PER_KM.walk).toFixed(3)} kg CO₂)`,'good');hud();return up}
+// Combine one GPS segment with the steps taken during it
+function fuseSteps(d,a,f){
+  if(steps.state!=='active'||S.simGPS||S.transit||S.bike||S.speed>LIM.walkMax){steps.unc=0;return d}
+  const c=steps.cadence(),st=strideAt(c),n=steps.unc;steps.unc=0;
+  if(c<30)return d;                                    // mode() blocks this as 'nosteps'
+  const stepKmh=c*st*60/1000;
+  if(S.speed>stepKmh*1.6+3){if(Date.now()-lastCarToast>4000){lastCarToast=Date.now();toast(BLOCKED.mismatch,'bad')}return 0}
+  // learn stride from good-GPS walking, over 60+ steps at a time (short segments are too noisy and biased)
+  if(f.acc<=15&&a.acc<=15&&n>0){steps.calD+=d;steps.calN+=n*(c>140?1.35:1);if(steps.calN>=60){S.stride=clamp(S.stride*.7+(steps.calD/steps.calN)*.3,.45,1.2);steps.calD=steps.calN=0}}else{steps.calD=steps.calN=0}
+  return n>0?Math.min(d,n*st*1.3+5):d}
 async function startSteps(user){
   if(steps.state==='active')return user&&toast('👣 Step sensor already on');
   if(typeof DeviceMotionEvent==='undefined'){steps.state='unavailable';return renderDev()}
@@ -1186,7 +1242,8 @@ function renderDev(){const v=S.simSpeed;$('#spdVal').textContent=v.toFixed(1);
     :`<div class="sub">No active ride. On foot counts up to 15 km/h; 15–25 km/h needs a bike-share check-in; faster needs a ride code.</div>`;
   $('#transitStatus').innerHTML=ride;
   $('#rideLog').innerHTML=S.rides.length?S.rides.slice(-5).reverse().map(r=>`<div class="ride"><span>${r.icon}</span><span>${r.txt}</span><span>${r.time}</span></div>`).join(''):'<div class="sub">No rides yet.</div>';
-  $('#stepStatus').innerHTML={active:`✅ Step sensor on — <b>${steps.cadence()} steps/min</b> right now. Movement on foot with no steps (e.g. in a car) earns nothing.`,
+  const dk=dayKey();
+  $('#stepStatus').innerHTML={active:`✅ Step sensor on — <b>${steps.cadence()} steps/min</b> now<br>Today: <b>${fmt(S.stepCounts[dk]||0)} steps</b> · stride <b>${S.stride.toFixed(2)} m</b> (learnt from GPS)<br>Step-only exercise today: <b>${Math.round(S.stepDays[dk]||0)} / ${STEP.dailyCap} m</b> — counts for coins &amp; XP; becomes CO₂ when GPS confirms the trip. GPS distance can never exceed what your steps cover.`,
     waiting:'⏳ Waiting for motion data…',off:'Not started yet — tap the button below.',denied:'🚫 Motion access was refused. Walking still counts from GPS only (less cheat-proof).',
     unavailable:'ℹ️ No motion sensor here (desktop / some browsers). Walking counts from GPS only.'}[steps.state];
   $('#bpm').textContent=S.watch?bio.bpm:'--';$('#spm').textContent=steps.state==='active'?steps.cadence():'--';$('#bonusV').textContent=S.watch?'+'+fmt(S.bonusCoins):'—'}
