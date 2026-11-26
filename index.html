@@ -312,7 +312,7 @@ input[type=text],input[type=password]{width:100%;background:var(--panel2);border
         </div>
       </div>
       <div class="ovl gate" id="gate"><div class="card"><span class="e" id="gateE">📍</span><div class="title" id="gateT">Allow location to play</div><div class="sub" id="gateS" style="margin:6px 0 12px">EcoTrack GO moves you on the map only when you physically walk, run, cycle or ride.</div>
-        <div class="grid2"><button class="btn g" onclick="startGPS(true)">📍 Use my GPS</button><button class="btn p" onclick="setSim(true)">🧪 Simulator</button></div></div></div>
+        <div class="grid2"><button class="btn g" onclick="startGPS(true)">📍 Use my GPS</button><button class="btn p" id="gateSim" style="display:none" onclick="setSim(true)">🧪 Simulator</button></div></div></div>
     </section>
 
     <!-- ARENA -->
@@ -403,6 +403,7 @@ input[type=text],input[type=password]{width:100%;background:var(--panel2);border
         <div class="grid3" id="profileStats" style="margin-bottom:10px"></div>
         <div class="sub" style="margin-bottom:6px">Equip an unlocked trainer outfit</div>
         <div class="grid3" id="profileSkins"></div>
+        <div class="card sub" style="background:var(--panel2);padding:10px;margin-top:10px" id="co2Method"></div>
         <button class="btn g full" style="margin-top:10px" onclick="makePoster()">📸 Generate WeChat Moments Poster</button></div></div>
       <div class="acc" id="acc-map"><button onclick="toggleAcc('map')">🗺️ Map &amp; GPS Settings</button><div class="in">
         <div class="card" style="background:var(--panel2);padding:10px" id="mapStatus"></div>
@@ -412,8 +413,22 @@ input[type=text],input[type=password]{width:100%;background:var(--panel2);border
         <div class="sub" style="margin-top:8px">Without a key the game uses a free Esri street map. Nearby places (lakes, parks, stadiums…) come from Esri place search, with OpenStreetMap as backup. Live GPS needs HTTPS (or localhost) and location permission.</div>
         <button class="btn b sm full" style="margin-top:8px" onclick="startGPS(true)">📍 Restart live GPS</button>
       </div></div>
-      <div class="acc" id="acc-dev"><button onclick="toggleAcc('dev')">🧪 Dev Lab, Weixin Wallet &amp; GPS Tester</button><div class="in">
-        <div class="row"><div class="grow"><div class="title" style="font-size:13px">🧪 GPS Simulator (desk testing)</div><div class="sub">Replaces live GPS with fake fixes from the on-map D-pad. Off = only real walking moves you.</div></div><button class="toggle" id="simToggle"></button></div>
+      <div class="acc" id="acc-ride"><button onclick="toggleAcc('ride')">💳 Ride Codes, Bike &amp; Step Sensor</button><div class="in">
+        <h3 style="margin-top:4px">💳 Weixin Wallet · Transit Ride Code (乘车码)</h3>
+        <div class="card" style="background:var(--panel2);padding:10px" id="transitStatus"></div>
+        <div class="grid3"><button class="btn b sm" onclick="tapTransit('MTR')">🚇 Tap MTR Ride Code</button><button class="btn b sm" onclick="tapTransit('BUS')">🚌 Tap City Bus QR</button><button class="btn sm" onclick="exitTransit()">🚶 Exit Station</button></div>
+        <div class="grid2" style="margin-top:8px"><button class="btn g sm" onclick="startBike()">🚲 Scan Bike-Share QR</button><button class="btn sm" onclick="endBike()">🅿️ End bike ride</button></div>
+        <div class="sub" style="margin:6px 0 2px">Moving 15–25 km/h only counts after a bike-share check-in; above 25 km/h only with a transit ride code.</div>
+        <div class="sub" style="margin:8px 0 2px">Recent ride log</div><div id="rideLog"></div>
+        <h3>👣 Step sensor</h3>
+        <div class="card" style="background:var(--panel2);padding:10px" id="stepStatus"></div>
+        <button class="btn b sm full" onclick="startSteps(true)">👣 Enable step sensor</button>
+        <h3>⌚ WeRun / Smartwatch Sync</h3>
+        <div class="row"><div class="grow"><div class="sub">+15% coin bonus on walks — only while the step sensor confirms real steps</div></div><button class="toggle" id="watchToggle"></button></div>
+        <div class="bio"><div><span class="sub">Heart rate</span><b class="hr" id="bpm">--</b><span class="sub">BPM (demo)</span></div><div><span class="sub">Cadence</span><b id="spm">--</b><span class="sub">SPM (real)</span></div><div><span class="sub">Bonus</span><b id="bonusV" style="color:var(--green)">—</b><span class="sub">coins</span></div></div>
+      </div></div>
+      <div class="acc" id="acc-dev" style="display:none"><button onclick="toggleAcc('dev')">🧪 Dev Lab (developer only)</button><div class="in">
+        <div class="row"><div class="grow"><div class="title" style="font-size:13px">🧪 GPS Simulator (desk testing)</div><div class="sub">Replaces live GPS with fake fixes from the on-map D-pad. Only available with ?dev=1 in the link.</div></div><button class="toggle" id="simToggle"></button></div>
         <div class="simonly" id="simBox" style="margin-top:10px">
           <div class="row"><div class="grow"><div class="sub">Simulated GPS speed</div><div class="speedval"><span id="spdVal">5.0</span> <small style="font-size:13px;color:var(--muted)">km/h</small></div></div><span class="tag" id="spdMode">WALK</span></div>
           <input type="range" id="spd" min="0" max="60" step="0.5" value="5">
@@ -421,13 +436,6 @@ input[type=text],input[type=password]{width:100%;background:var(--panel2);border
             <button class="btn sm" onclick="setSimSpeed(0)">Idle 0</button><button class="btn sm" onclick="setSimSpeed(5)">🚶 Walk 5</button><button class="btn sm" onclick="setSimSpeed(12)">🏃 Run 12</button><button class="btn sm" onclick="setSimSpeed(20)">🚲 Cycle 20</button><button class="btn sm r" onclick="setSimSpeed(45)">🚗 Car 45</button>
           </div>
         </div>
-        <h3>💳 Weixin Wallet · Transit Ride Code (乘车码)</h3>
-        <div class="card" style="background:var(--panel2);padding:10px" id="transitStatus"></div>
-        <div class="grid3"><button class="btn b sm" onclick="tapTransit('MTR')">🚇 Tap MTR Ride Code</button><button class="btn b sm" onclick="tapTransit('BUS')">🚌 Tap City Bus QR</button><button class="btn sm" onclick="exitTransit()">🚶 Exit Station</button></div>
-        <div class="sub" style="margin:8px 0 2px">Recent ride fare log</div><div id="rideLog"></div>
-        <h3>⌚ WeRun / Smartwatch Sync</h3>
-        <div class="row"><div class="grow"><div class="sub">+15% Heart-Rate Cadence Bonus on verified walks &amp; rides</div></div><button class="toggle" id="watchToggle"></button></div>
-        <div class="bio"><div><span class="sub">Heart rate</span><b class="hr" id="bpm">--</b><span class="sub">BPM</span></div><div><span class="sub">Cadence</span><b id="spm">--</b><span class="sub">SPM</span></div><div><span class="sub">Bonus</span><b id="bonusV" style="color:var(--green)">—</b><span class="sub">coins</span></div></div>
         <h3>⏱️ Timed walk simulators <span class="tag">simulator only</span></h3>
         <div class="simonly" id="simBox2"><div class="grid4"><button class="btn sm" onclick="simWalk(1)">1 min</button><button class="btn sm" onclick="simWalk(5)">5 min</button><button class="btn sm" onclick="simWalk(10)">10 min</button><button class="btn sm" onclick="simWalk(30)">30 min</button></div></div>
         <div class="sub" id="simStatus" style="margin-top:6px">Turn on the GPS Simulator to use these.</div>
@@ -603,13 +611,17 @@ const FRIENDS=[{n:'Mei L.',a:'bamboo',c:5820,k:24.6},{n:'Jun W.',a:'solar',c:497
 
 /* ---------- STATE ---------- */
 const KEY='ecotrackgo_v2';
-function defaults(){return{coins:3450,co2:12.4,streak:5,meters:0,speed:0,simSpeed:5,simGPS:false,transit:null,watch:false,berries:3,passes:0,intense:false,
+function defaults(){return{ver:3,coins:500,co2:0,days:{},bike:null,meters:0,speed:0,simSpeed:5,simGPS:false,transit:null,watch:false,berries:3,passes:0,intense:false,
   potions:{heal:2,power:1,swift:1,shield:1},skinsOwned:['default'],skin:'default',squad:[{id:1,sp:'sproutling',lvl:3,xp:0,theme:'park',place:'Starter'}],champ:1,vouchers:[],rides:[],nextId:2,wins:0,bonusCoins:0,name:'Eco Ranger',seen:['sproutling']}}
 let S=(()=>{try{const r=localStorage.getItem(KEY);if(r){const o=Object.assign(defaults(),JSON.parse(r));o.speed=0;return o}}catch(e){}return defaults()})();
 // migrate older saves (CP-based monsters → levels & habitats)
 S.squad=S.squad.filter(m=>SPECIES[m.sp]).map(m=>({id:m.id,sp:m.sp,lvl:m.lvl||Math.max(1,Math.round((m.cp||60)/50)),xp:m.xp||0,theme:m.theme||'wild',place:m.place||''}));
 if(!S.squad.length)S.squad=defaults().squad;
 S.seen=S.seen.filter(k=>SPECIES[k]);
+if((S.ver||0)<3){S.co2=Math.max(0,+((S.co2||0)-12.4).toFixed(3));S.days=S.days||{};S.ver=3} // drop the old fake 12.4 kg starting value
+delete S.streak;
+const DEV=new URLSearchParams(location.search).has('dev');   // Dev Lab + GPS simulator only with ?dev=1
+if(!DEV)S.simGPS=false;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 setInterval(save,2000);
 function resetAll(){if(!confirm('Reset all EcoTrack GO progress?'))return;try{localStorage.removeItem(KEY)}catch(e){}location.reload()}
@@ -619,24 +631,49 @@ function toast(msg,cls=''){const t=document.createElement('div');t.className='to
   while($('#toasts').children.length>3)$('#toasts').firstChild.remove();setTimeout(()=>t.remove(),2800)}
 
 /* ---------- MODE / ECONOMY ---------- */
-function mode(){if(S.speed>25)return S.transit?'transit':'car';return S.speed<0.5?'idle':'walk'}
+/* Travel modes. GPS speed alone can't tell a bike from a taxi, so:
+   ≤15 km/h on foot (and, where the phone's step sensor works, steps must be detected),
+   15–25 km/h only after a bike-share check-in, any speed while tapped in on transit. */
+const LIM={walkMax:15,cycleMax:25};
+// kg CO₂ avoided per km, versus the same trip by an average car (~0.17 kg/km). Estimates — swap in official HK factors.
+const CO2_PER_KM={walk:0.17,cycle:0.17,mtr:0.14,bus:0.09};
+const CO2_LABEL={walk:'Walk / run',cycle:'Bike-share',mtr:'MTR / rail',bus:'Bus'};
+const BLOCKED={
+  car:'🚨 Car Speed (&gt;25 km/h) • No Weixin Transit Tap',
+  fast:'🚨 15–25 km/h with no bike check-in — scan a bike-share QR if cycling',
+  nosteps:'🚨 Moving but no steps detected — in a vehicle? Rewards paused'};
+function mode(){
+  if(S.speed<0.5)return'idle';
+  if(S.transit)return'transit';
+  if(S.bike&&S.speed<=LIM.cycleMax)return'cycle';
+  if(S.speed>LIM.cycleMax)return'car';
+  if(S.speed>LIM.walkMax)return'fast';
+  if(!S.simGPS&&steps.state==='active'&&steps.cadence()<30)return'nosteps';
+  return'walk'}
+const kindOf=m0=>m0==='transit'?(S.transit.type==='MTR'?'mtr':'bus'):m0==='cycle'?'cycle':'walk';
 let lastCarToast=0;
 function gainXP(m,x){if(!m)return;m.xp=(m.xp||0)+x;let up=false;while(m.lvl<30&&m.xp>=xpNeed(m.lvl)){m.xp-=xpNeed(m.lvl);m.lvl++;up=true}
   if(up){toast(`⬆️ ${dispName(m)} reached <b>Lv ${m.lvl}</b>! (${perMetre(m).toFixed(2)} dmg/m)`,'gold');if(view==='squad')renderSquad();if(view==='arena')renderArena()}}
+/* ---------- Eco streak: a day counts with ≥500 m of verified green travel ---------- */
+const dayKey=(d=new Date())=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function streak(){const d=new Date();if((S.days[dayKey(d)]||0)<500)d.setDate(d.getDate()-1);let n=0;while((S.days[dayKey(d)]||0)>=500){n++;d.setDate(d.getDate()-1)}return n}
 // All rewards come from here, and award() is only ever called with distance measured between GPS fixes.
 function award(raw){
   const m0=mode();
-  if(m0==='car'){if(Date.now()-lastCarToast>4000){lastCarToast=Date.now();toast('🚨 Car speed &gt;25 km/h without a Weixin transit tap — rewards paused','bad')}return 0}
-  const m=raw*(S.intense?2:1), walk=m0!=='transit';
-  let coins=m/10*(walk?5:2);
-  if(S.watch){S.bonusCoins+=coins*.15;coins*=1.15}
+  if(m0==='idle')return 0;
+  if(BLOCKED[m0]){if(Date.now()-lastCarToast>4000){lastCarToast=Date.now();toast(BLOCKED[m0]+' — rewards paused','bad')}return 0}
+  const kind=kindOf(m0),active=kind==='walk'||kind==='cycle';
+  const game=raw*(S.intense?2:1);                       // Intense doubles game progress & coins only — never real distance or CO₂
+  let coins=game/10*(active?5:2);
+  if(S.watch&&kind==='walk'&&steps.state==='active'&&steps.cadence()>=60){S.bonusCoins+=coins*.15;coins*=1.15}
   S.coins+=coins;
-  if(walk){S.co2+=m/10*0.002;gainXP(champ(),raw/10)} // buddy XP: 1 per 10 m walked
-  S.meters+=m;
-  if(enc&&enc.state==='chase'){enc.prog=Math.min(enc.req,enc.prog+m);if(enc.req-enc.prog<0.5)enc.prog=enc.req;renderEnc()}
-  if(AR.phase==='turn'){AR.raw+=raw;AR.meters+=m*(AR.swift?2:1);renderArenaLive()}
-  if(view==='map'&&coins>=1){const f=document.createElement('div');f.className='coinfloat';f.textContent=`+${Math.round(m)} m · +${Math.floor(coins)} 🪙`;$('#view-map').appendChild(f);setTimeout(()=>f.remove(),1100)}
-  hud();return m;
+  S.co2+=raw/1000*CO2_PER_KM[kind];
+  S.meters+=raw;const dk=dayKey();S.days[dk]=(S.days[dk]||0)+raw;
+  if(active)gainXP(champ(),raw/10); // buddy XP: 1 per 10 m on foot / bike
+  if(enc&&enc.state==='chase'){enc.prog=Math.min(enc.req,enc.prog+game);if(enc.req-enc.prog<0.5)enc.prog=enc.req;renderEnc()}
+  if(AR.phase==='turn'){AR.raw+=raw;AR.meters+=game*(AR.swift?2:1);renderArenaLive()}
+  if(view==='map'&&coins>=1){const f=document.createElement('div');f.className='coinfloat';f.textContent=`+${Math.round(raw)} m · +${Math.floor(coins)} 🪙`;$('#view-map').appendChild(f);setTimeout(()=>f.remove(),1100)}
+  hud();return raw;
 }
 function spend(n){if(S.coins<n){toast(`Not enough EcoCoins — need ${fmt(n)} 🪙`,'bad');return false}S.coins-=n;hud(true);return true}
 function endIntense(reason){if(!S.intense)return;S.intense=false;hud();renderShop();renderPlayer();toast(`⚡ Intense Pass used up (${reason})`,'gold')}
@@ -648,26 +685,28 @@ function hud(bump){
   const c=Math.floor(S.coins);$('#hudCoins').textContent=fmt(c);
   if(bump||(lastCoinsShown>=0&&c!==lastCoinsShown)){const el=$('#hudCoins');el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump')}
   lastCoinsShown=c;
-  $('#hudStreak').textContent='🔥 '+S.streak+'d';
+  $('#hudStreak').textContent='🔥 '+streak()+'d';
   $('#intenseBadge').classList.toggle('on',S.intense);
   renderStatus();
 }
 function renderStatus(){
   const m=mode(),st=$('#strip');let txt;
   if(!geo.fix)txt=S.simGPS?'🧪 Simulator ready':'📡 Waiting for GPS fix…';
-  else if(m==='car')txt='🚨 Car Speed (&gt;25 km/h) • No Weixin Transit Tap';
-  else if(m==='transit')txt=`🚇 WeChat Pay: ${S.transit.type==='MTR'?'MTR QR OK':'Bus QR OK'} • +2 🪙/10m`;
-  else if(m==='idle')txt='⏸ Standing still • walk to move on the map';
-  else{const l=S.speed>=15?'🚲 Cycling':S.speed>=8?'🏃 Running':'🚶 Walking';txt=`${l} • +5 🪙 &amp; +0.002 kg/10m`}
-  st.className='strip '+(!geo.fix||m==='idle'?'idle':m==='car'?'bad':m==='transit'?'transit':'ok');
+  else if(BLOCKED[m])txt=BLOCKED[m];
+  else if(m==='transit')txt=`${S.transit.type==='MTR'?'🚇':'🚌'} WeChat Pay: ${S.transit.type==='MTR'?'MTR QR OK':'Bus QR OK'} • +2 🪙/10m · ${CO2_PER_KM[kindOf(m)]} kg CO₂/km`;
+  else if(m==='idle')txt=S.transit?`⏸ Tapped in (${S.transit.type}) • waiting to move`:'⏸ Standing still • walk to move on the map';
+  else if(m==='cycle')txt=`🚲 Bike-share ride • +5 🪙/10m · ${CO2_PER_KM.cycle} kg CO₂/km`;
+  else{const l=S.speed>=8?'🏃 Running':'🚶 Walking';txt=`${l} • +5 🪙/10m · ${CO2_PER_KM.walk} kg CO₂/km`}
+  st.className='strip '+(!geo.fix||m==='idle'?'idle':BLOCKED[m]?'bad':m==='transit'?'transit':'ok');
   $('#stripMain').innerHTML=txt;
   let chips=`<span class="chip">${S.simGPS?'🧪':'📡'} ${S.speed.toFixed(1)} km/h</span> `;
-  if(S.watch)chips+=`<span class="chip">⌚ ${bio.bpm} BPM +15%</span> `;
+  if(steps.state==='active')chips+=`<span class="chip">👣 ${steps.cadence()} spm</span> `;
+  if(S.watch)chips+=`<span class="chip">⌚ ${bio.bpm} BPM</span> `;
   if(S.intense)chips+=`<span class="chip" style="color:var(--amber)">⚡2x</span>`;
   $('#stripChips').innerHTML=chips;
-  $('#carflag').classList.toggle('on',!!geo.fix&&m==='car');
-  $('#arWarn').classList.toggle('on',m==='car');
-  const ew=$('#encWarn');if(ew)ew.classList.toggle('on',m==='car');
+  $('#carflag').classList.toggle('on',!!geo.fix&&!!BLOCKED[m]);if(BLOCKED[m])$('#carflag').innerHTML=BLOCKED[m]+'<br><span style="font-weight:500">EcoCoin &amp; CO₂ rewards paused.</span>';
+  $('#arWarn').classList.toggle('on',!!BLOCKED[m]);
+  const ew=$('#encWarn');if(ew)ew.classList.toggle('on',!!BLOCKED[m]);
 }
 
 /* ---------- VIEWS ---------- */
@@ -758,7 +797,7 @@ function renderMapStatus(){const k=getKey();
 /* =========================================================
    GPS TRACKING — the only thing that moves the player
    ========================================================= */
-const geo={fix:null,anchor:null,acc:null,heading:0,status:'off',err:'',lastMoveWall:0};
+const geo={fix:null,anchor:null,acc:null,heading:0,status:'off',err:'',lastMoveWall:0,hist:[],moving:false,walkSince:0};
 let gpsWatch=null,simT=0,gateWait=false;
 function geoStatusText(){return{off:'off',waiting:'waiting for first fix…',live:`live ±${Math.round(geo.acc||0)} m`,weak:`weak signal ±${Math.round(geo.acc||0)} m`,sim:'simulator',denied:'permission denied',insecure:'needs HTTPS / localhost',unsupported:'not supported',error:'error — '+geo.err}[geo.status]}
 function setGeoStatus(s,err=''){geo.status=s;geo.err=err;
@@ -773,6 +812,7 @@ function setGeoStatus(s,err=''){geo.status=s;geo.err=err;
   if(s==='error'){$('#gateE').textContent='🛰️';$('#gateT').textContent='No GPS fix yet';$('#gateS').textContent=err||'Try again outdoors.'}
   renderStatus();if($('#drawer').classList.contains('on'))renderMapStatus()}
 function startGPS(user){
+  if(user)startSteps();
   if(S.simGPS){if(!user)return;setSim(false);return}
   stopGPS();
   if(!('geolocation'in navigator))return setGeoStatus('unsupported');
@@ -784,23 +824,61 @@ function startGPS(user){
     {enableHighAccuracy:true,maximumAge:0,timeout:20000})}
 function stopGPS(){if(gpsWatch!=null)navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null}
 
+/* Movement filter. A phone's GPS fix wanders by several metres even when you sit still, so distance is only
+   credited when, over the last ~30 s, you have clearly travelled further than that wobble. Gaps (tunnels, the
+   MTR, phone asleep) are never credited as walking. */
+const TRACK={credAcc:25,winMin:20,winMax:35,gapS:60,minKmh:1.8};
 function onFix(f){
-  if(f.acc>45){geo.acc=f.acc;if(geo.fix)setGeoStatus('weak');return} // too inaccurate to trust
-  const first=!geo.fix;geo.fix=f;geo.acc=f.acc;setGeoStatus(S.simGPS?'sim':'live');
+  if(f.acc>45){geo.acc=f.acc;if(geo.fix)setGeoStatus('weak');return} // too inaccurate to show
+  const first=!geo.fix,prevT=geo.fix?geo.fix.t:null;geo.fix=f;geo.acc=f.acc;setGeoStatus(S.simGPS?'sim':'live');
+  geo.hist.push(f);while(geo.hist.length&&f.t-geo.hist[0].t>60000)geo.hist.shift();
   if(!geo.anchor){geo.anchor=f;placePlayer(f);if(first||follow)MAP&&MAP.pan(f,first?18:0);despawnFar(true);ensureWild();updateWild();fetchPOI(f);return}
-  const d=distM(geo.anchor,f),dt=Math.max(.001,(f.t-geo.anchor.t)/1000);
-  if(!S.simGPS&&f.speed!=null&&f.speed>=0)S.speed=+(f.speed*3.6).toFixed(1);
-  const thresh=Math.max(4,Math.min(15,f.acc*.6)); // ignore jitter while standing still
-  if(d>=thresh){
-    const kmh=d/dt*3.6;
-    if(kmh>200){geo.anchor=f}               // GPS jump / teleport – never rewarded
-    else{
-      if(S.simGPS)S.speed=+(f.speed*3.6).toFixed(1);else if(f.speed==null||f.speed<0)S.speed=+kmh.toFixed(1);
-      geo.heading=bearing(geo.anchor,f);geo.lastMoveWall=Date.now();geo.anchor=f;award(d)}
+  const gap=prevT?(f.t-prevT)/1000:0;
+  if(gap>TRACK.gapS&&!S.simGPS){ // GPS was lost: only a tapped-in transit ride may be credited across the gap
+    const d=distM(geo.anchor,f),kmh=d/((f.t-geo.anchor.t)/1000)*3.6;
+    if(S.transit&&d>50&&kmh<=90){const sp=S.speed;S.speed=Math.max(kmh,1);award(d);S.speed=sp;toast(`${S.transit.type==='MTR'?'🚇':'🚌'} Ride across GPS gap: ${(d/1000).toFixed(2)} km counted as ${S.transit.type}`,'good')}
+    else if(d>50)toast(`📵 GPS was off for ${Math.round(gap/60)} min — ${(d/1000).toFixed(2)} km not counted (tap a ride code before travelling underground)`,'bad');
+    geo.anchor=f;geo.hist=[f];S.speed=0;geo.moving=false;afterFix(f);return}
+  let moving,kmh;
+  if(S.simGPS){moving=f.speed>0;kmh=f.speed*3.6}
+  else{
+    const old=geo.hist.find(h=>f.t-h.t<=TRACK.winMax*1000)||geo.hist[0],wdt=(f.t-old.t)/1000,net=distM(old,f);
+    const devKmh=f.speed!=null&&f.speed>=0?f.speed*3.6:null;
+    kmh=wdt>0?net/wdt*3.6:0;
+    moving=wdt>=TRACK.winMin&&f.acc<=TRACK.credAcc&&net>=Math.max(15,1.2*f.acc)&&kmh>=TRACK.minKmh&&(devKmh==null||devKmh>=TRACK.minKmh);
+    if(moving&&devKmh!=null)kmh=Math.max(kmh,devKmh);  // never let a momentary slow reading hide a fast segment
   }
-  placePlayer(f);if(follow)MAP&&MAP.pan(f);
-  despawnFar();ensureWild();updateWild();fetchPOI(f);renderHabitat();checkProximity();hud()}
-setInterval(()=>{if(geo.fix&&S.speed>0&&Date.now()-geo.lastMoveWall>9000){S.speed=0;hud()}},1000);
+  geo.moving=moving;S.speed=moving?+kmh.toFixed(1):0;
+  if(!moving){geo.anchor=f}                            // stationary: re-anchor so drift never accumulates
+  else{const d=distM(geo.anchor,f),segKmh=d/Math.max(.001,(f.t-geo.anchor.t)/1000)*3.6;
+    if(d>=Math.max(5,.5*f.acc)){
+      if(segKmh>200)geo.anchor=f;                      // teleport / glitch – never rewarded
+      else{if(segKmh>S.speed&&!S.simGPS)S.speed=+Math.min(segKmh,kmh*1.5).toFixed(1);
+        geo.heading=bearing(geo.anchor,f);geo.lastMoveWall=Date.now();geo.anchor=f;award(d)}}}
+  autoEndRides();afterFix(f)}
+function afterFix(f){placePlayer(f);if(follow)MAP&&MAP.pan(f);despawnFar();ensureWild();updateWild();fetchPOI(f);renderHabitat();checkProximity();hud()}
+// Tap-ins end automatically: after 4 min of walking pace, or after 2 h (MTR/bus) / 2 h (bike)
+function autoEndRides(){const now=Date.now(),walking=S.speed>=2&&S.speed<=7;
+  if(walking){if(!geo.walkSince)geo.walkSince=now}else geo.walkSince=0;
+  const walked4=geo.walkSince&&now-geo.walkSince>240000;
+  if(S.transit&&(walked4||now-(S.transit.since||now)>7200000)){exitTransit(true);toast('🚶 Ride code closed automatically — you are walking again','gold')}
+  if(S.bike&&(walked4||now-S.bike.since>7200000)){endBike(true);toast('🅿️ Bike ride ended automatically','gold')}}
+setInterval(()=>{if(geo.fix&&S.speed>0&&Date.now()-geo.lastMoveWall>15000&&!geo.moving){S.speed=0;hud()}},1000);
+
+/* ---------- Step sensor ---------- */
+const steps={state:'off',times:[],lp:9.8,last:0,above:false,
+  cadence(){const now=Date.now();this.times=this.times.filter(t=>now-t<20000);return this.times.length*3}};
+function onMotion(e){const a=e.accelerationIncludingGravity;if(!a||a.x==null)return;if(steps.state!=='active'){steps.state='active';renderDev()}
+  const mag=Math.hypot(a.x,a.y,a.z);steps.lp=steps.lp*.75+mag*.25;const now=Date.now();
+  if(!steps.above&&steps.lp>11.3&&now-steps.last>280){steps.above=true;steps.last=now;steps.times.push(now)}else if(steps.lp<10.2)steps.above=false}
+async function startSteps(user){
+  if(steps.state==='active')return user&&toast('👣 Step sensor already on');
+  if(typeof DeviceMotionEvent==='undefined'){steps.state='unavailable';return renderDev()}
+  try{if(typeof DeviceMotionEvent.requestPermission==='function'){const r=await DeviceMotionEvent.requestPermission();if(r!=='granted'){steps.state='denied';return renderDev()}}
+    removeEventListener('devicemotion',onMotion);addEventListener('devicemotion',onMotion);steps.state='waiting';renderDev();
+    setTimeout(()=>{if(steps.state==='waiting'){steps.state='unavailable';renderDev()}},4000)}catch(e){steps.state='unavailable';renderDev()}}
+// iOS only allows the motion prompt from a tap, so ask on the first tap anywhere
+addEventListener('pointerdown',()=>{if(steps.state==='off')startSteps()},{once:true});
 
 /* player marker */
 const pEl=document.createElement('div');pEl.className='mk';pEl.innerHTML='<div class="in pmk"><div class="parrow"></div><div class="pav"></div></div>';
@@ -887,12 +965,12 @@ function renderNearby(){const list=wild.map(w=>({w,d:Math.round(dTo(w))})).sort(
 /* =========================================================
    GPS SIMULATOR (Dev Lab only) — feeds fake fixes into onFix
    ========================================================= */
-function setSim(on){S.simGPS=on;geo.anchor=null;
+function setSim(on){if(on&&!DEV)return;S.simGPS=on;geo.anchor=null;geo.hist=[];
   if(on){stopGPS();simT=Date.now();const b=geo.fix||DEFAULT_POS;S.speed=0;onFix({lat:b.lat,lng:b.lng,acc:5,speed:0,t:simT});toast('🧪 GPS Simulator on — use the purple D-pad')}
   else{S.speed=0;startGPS(false);toast('📡 Live GPS on — walk for real to move')}
   renderSimUI();renderDev();hud()}
 function simStep(deg,m=10){if(!S.simGPS)return;const kmh=S.simSpeed>0?S.simSpeed:5,ms=kmh/3.6,b=geo.fix||DEFAULT_POS;
-  const p=offsetM(b,Math.sin(toRad(deg))*m,Math.cos(toRad(deg))*m);simT+=m/ms*1000;onFix({lat:p.lat,lng:p.lng,acc:5,speed:ms,t:simT})}
+  const p=offsetM(b,Math.sin(toRad(deg))*m,Math.cos(toRad(deg))*m);simT+=m/ms*1000;onFix({lat:p.lat,lng:p.lng,acc:5,speed:S.simSpeed>0?ms:0,t:simT})}
 function simForward(m){simStep(geo.heading,m)}
 function setSimSpeed(v){S.simSpeed=+v;$('#spd').value=v;renderDev()}
 function renderSimUI(){$('#simpad').classList.toggle('on',S.simGPS);$('#arSim').classList.toggle('on',S.simGPS);$('#simBox').classList.toggle('on',S.simGPS);$('#simBox2').classList.toggle('on',S.simGPS);
@@ -900,7 +978,7 @@ function renderSimUI(){$('#simpad').classList.toggle('on',S.simGPS);$('#arSim').
   $('#arGps').textContent=S.simGPS?'🧪 Simulator on — Sim buttons fake walking (pace uses the simulated speed)':'📡 Walk with your phone — GPS metres charge your attack';
   $('#simStatus').textContent=S.simGPS?'Uses the simulated speed and transit state. Rewards only — your map position does not move.':'Turn on the GPS Simulator to use these.'}
 $$('#simpad .dpad button').forEach(b=>b.onclick=()=>simStep(+b.dataset.d));
-addEventListener('keydown',e=>{if(!S.simGPS||e.target.tagName==='INPUT')return;const k={ArrowUp:0,ArrowRight:90,ArrowDown:180,ArrowLeft:270}[e.key];if(k!==undefined){e.preventDefault();simStep(k)}});
+addEventListener('keydown',e=>{if(!DEV||!S.simGPS||e.target.tagName==='INPUT')return;const k={ArrowUp:0,ArrowRight:90,ArrowDown:180,ArrowLeft:270}[e.key];if(k!==undefined){e.preventDefault();simStep(k)}});
 
 /* =========================================================
    WILD ENCOUNTER — Feed & Sprint (distance = real GPS metres)
@@ -1089,6 +1167,9 @@ function renderDrawer(){$('#dAv').innerHTML=trainerSVG(S.skin,48);$('#dName').te
   if(document.activeElement!==$('#nameInput'))$('#nameInput').value=S.name;
   $('#profileStats').innerHTML=[['🚶',(S.meters/1000).toFixed(2)+' km'],['🐾',S.squad.length+' caught'],['🏆',S.wins+' wins']].map(([e,v])=>`<div class="skin"><span class="e">${e}</span>${v}</div>`).join('');
   $('#profileSkins').innerHTML=Object.keys(SKINS).map(skinTile).join('');
+  $('#co2Method').innerHTML=`<b style="color:var(--text)">🌱 How CO₂ saved is worked out</b><br>Each verified kilometre is compared with making the same trip by an average car (~0.17 kg CO₂/km):<br>`+
+    Object.entries(CO2_PER_KM).map(([k,v])=>`• ${CO2_LABEL[k]}: <b>${v} kg</b> saved per km`).join('<br>')+
+    `<br>Standing still, GPS gaps, car-speed trips and Intense Pass bonuses add <b>no</b> CO₂. Figures are estimates — replace with official Hong Kong factors before launch.`;
   renderMapStatus();renderDev()}
 $('#nameInput').oninput=e=>{S.name=e.target.value.trim()||'Eco Ranger';$('#dName').textContent=S.name};
 
@@ -1097,22 +1178,30 @@ $('#spd').oninput=e=>setSimSpeed(e.target.value);
 $('#simToggle').onclick=()=>setSim(!S.simGPS);
 $('#watchToggle').onclick=()=>{S.watch=!S.watch;renderDev();hud();toast(S.watch?'⌚ Smartwatch synced — +15% cadence bonus':'⌚ Smartwatch disconnected')};
 function renderDev(){const v=S.simSpeed;$('#spdVal').textContent=v.toFixed(1);
-  const m=v>25?(S.transit?'TRANSIT ✓':'🚨 CAR'):v===0?'IDLE':v>=15?'CYCLE':v>=8?'RUN':'WALK';$('#spdMode').textContent=m;
-  $('#spdMode').style.color=m.includes('CAR')?'#f87171':m.includes('TRANSIT')?'#7dd3fc':'#6ee7b7';
+  const m=v>25?(S.transit?'TRANSIT ✓':'🚨 CAR'):v===0?'IDLE':v>15?(S.bike?'BIKE ✓':'🚨 NEEDS BIKE QR'):v>=8?'RUN':'WALK';$('#spdMode').textContent=m;
+  $('#spdMode').style.color=m.includes('🚨')?'#f87171':m.includes('✓')?'#7dd3fc':'#6ee7b7';
   $('#simToggle').classList.toggle('on',S.simGPS);$('#watchToggle').classList.toggle('on',S.watch);
-  $('#transitStatus').innerHTML=S.transit?`<div class="row"><span style="font-size:24px">${S.transit.type==='MTR'?'🚇':'🚌'}</span><div class="grow"><div class="title" style="color:#7dd3fc">WeChat Pay: ${S.transit.type==='MTR'?'MTR QR OK':'Bus QR OK'}</div><div class="sub">Tapped in ${S.transit.time} • speeds &gt;25 km/h verified as public transit (+2 🪙/10m)</div></div></div>`
-    :`<div class="sub">No active ride code. Moving &gt;25 km/h without a tap-in is flagged as a private car/taxi.</div>`;
+  const ride=S.transit?`<div class="row"><span style="font-size:24px">${S.transit.type==='MTR'?'🚇':'🚌'}</span><div class="grow"><div class="title" style="color:#7dd3fc">WeChat Pay: ${S.transit.type==='MTR'?'MTR QR OK':'Bus QR OK'}</div><div class="sub">Tapped in ${S.transit.time} • whole ride counts as ${S.transit.type} (+2 🪙/10m, ${CO2_PER_KM[S.transit.type==='MTR'?'mtr':'bus']} kg CO₂/km), even underground. Closes itself after 4 min of walking or 2 h.</div></div></div>`
+    :S.bike?`<div class="row"><span style="font-size:24px">🚲</span><div class="grow"><div class="title" style="color:#6ee7b7">Bike-share ride active</div><div class="sub">Since ${S.bike.time} • up to 25 km/h counts as cycling. Ends itself after 4 min of walking or 2 h.</div></div></div>`
+    :`<div class="sub">No active ride. On foot counts up to 15 km/h; 15–25 km/h needs a bike-share check-in; faster needs a ride code.</div>`;
+  $('#transitStatus').innerHTML=ride;
   $('#rideLog').innerHTML=S.rides.length?S.rides.slice(-5).reverse().map(r=>`<div class="ride"><span>${r.icon}</span><span>${r.txt}</span><span>${r.time}</span></div>`).join(''):'<div class="sub">No rides yet.</div>';
-  $('#bpm').textContent=S.watch?bio.bpm:'--';$('#spm').textContent=S.watch?bio.spm:'--';$('#bonusV').textContent=S.watch?'+'+fmt(S.bonusCoins):'—'}
+  $('#stepStatus').innerHTML={active:`✅ Step sensor on — <b>${steps.cadence()} steps/min</b> right now. Movement on foot with no steps (e.g. in a car) earns nothing.`,
+    waiting:'⏳ Waiting for motion data…',off:'Not started yet — tap the button below.',denied:'🚫 Motion access was refused. Walking still counts from GPS only (less cheat-proof).',
+    unavailable:'ℹ️ No motion sensor here (desktop / some browsers). Walking counts from GPS only.'}[steps.state];
+  $('#bpm').textContent=S.watch?bio.bpm:'--';$('#spm').textContent=steps.state==='active'?steps.cadence():'--';$('#bonusV').textContent=S.watch?'+'+fmt(S.bonusCoins):'—'}
 const now=()=>new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-function tapTransit(type){if(S.transit)return toast(`Already tapped in (${S.transit.type}). Exit first.`,'bad');
-  const fare=type==='MTR'?rand(4.5,18.9):rand(3.2,9.8);S.transit={type,time:now(),fare};
+function tapTransit(type){if(S.transit)return toast(`Already tapped in (${S.transit.type}). Exit first.`,'bad');if(S.bike)endBike(true);
+  const fare=type==='MTR'?rand(4.5,18.9):rand(3.2,9.8);S.transit={type,time:now(),fare,since:Date.now()};
   S.rides.push({icon:type==='MTR'?'🚇':'🚌',txt:`${type==='MTR'?'MTR Ride Code':'City Bus QR'} tap-in • HK$${fare.toFixed(1)}`,time:now()});
   renderDev();hud();toast(`✅ WeChat Pay: ${type==='MTR'?'MTR QR OK':'Bus QR OK'}`,'good')}
-function exitTransit(){if(!S.transit)return toast('No active transit ride');S.rides.push({icon:'🚶',txt:`Exit • ${S.transit.type} trip settled HK$${S.transit.fare.toFixed(1)}`,time:now()});S.transit=null;
-  renderDev();hud();toast('🚶 Exited station — back to walking mode')}
+function exitTransit(auto){if(!S.transit)return toast('No active transit ride');S.rides.push({icon:'🚶',txt:`${auto?'Auto-exit':'Exit'} • ${S.transit.type} trip settled HK$${S.transit.fare.toFixed(1)}`,time:now()});S.transit=null;
+  renderDev();hud();if(!auto)toast('🚶 Exited station — back to walking mode')}
+function startBike(){if(S.bike)return toast('Bike ride already active');if(S.transit)return toast('Exit your transit ride first','bad');
+  S.bike={time:now(),since:Date.now()};S.rides.push({icon:'🚲',txt:'MetroCycle bike-share unlocked',time:now()});renderDev();hud();toast('🚲 Bike unlocked — cycling up to 25 km/h now counts','good')}
+function endBike(auto){if(!S.bike)return toast('No active bike ride');S.bike=null;S.rides.push({icon:'🅿️',txt:auto?'Bike ride auto-ended':'Bike returned',time:now()});renderDev();hud();if(!auto)toast('🅿️ Bike ride ended')}
 
-/* ---------- Biometrics (simulated watch, driven by real speed) ---------- */
+/* ---------- Heart rate (demo only — no watch API in the browser); cadence comes from the real step sensor ---------- */
 const bio={bpm:72,spm:0};
 setInterval(()=>{const m=mode(),sp=S.speed;
   const tB=m==='idle'?70:m==='walk'?78+sp*4.5:m==='transit'?84:92,tS=m==='walk'?Math.round(sp<=8?95+sp*6:140+(sp-8)*1.8):0;
@@ -1122,10 +1211,10 @@ setInterval(()=>{const m=mode(),sp=S.speed;
 /* ---------- Timed walk simulator (simulator mode only; rewards only, map does not move) ---------- */
 let simming=false;
 function simWalk(min){if(simming||!S.simGPS)return;const sp=S.simSpeed>0?S.simSpeed:5,prev=S.speed;S.speed=sp;const m0=mode();
-  if(m0==='car'){S.speed=prev;toast('🚨 Car speed — simulated trip earns nothing. Tap a transit QR or slow down.','bad');return}
-  const total=sp/3.6*60*min,steps=25,c0=S.coins,k0=S.co2;simming=true;let i=0;
-  const iv=setInterval(()=>{S.speed=sp;award(total/steps);i++;$('#simStatus').textContent=`Simulating ${min} min @ ${sp} km/h… ${Math.round(i/steps*100)}%`;
-    if(i>=steps){clearInterval(iv);simming=false;S.speed=prev;const msg=`✅ ${min} min ${m0==='transit'?'ride':'walk'}: ${(total*(S.intense?2:1)/1000).toFixed(2)} km • +${fmt(S.coins-c0)} 🪙 • +${(S.co2-k0).toFixed(3)} kg CO₂`;
+  if(BLOCKED[m0]){S.speed=prev;toast(BLOCKED[m0]+' — simulated trip earns nothing.','bad');return}
+  const total=sp/3.6*60*min,nSteps=25,c0=S.coins,k0=S.co2;simming=true;let i=0;
+  const iv=setInterval(()=>{S.speed=sp;award(total/nSteps);i++;$('#simStatus').textContent=`Simulating ${min} min @ ${sp} km/h… ${Math.round(i/nSteps*100)}%`;
+    if(i>=nSteps){clearInterval(iv);simming=false;S.speed=prev;const msg=`✅ ${min} min ${m0==='transit'?'ride':'walk'}: ${(total/1000).toFixed(2)} km • +${fmt(S.coins-c0)} 🪙 • +${(S.co2-k0).toFixed(3)} kg CO₂`;
       $('#simStatus').textContent=msg;toast(msg,'good');endIntense('workout complete');hud(true)}},80)}
 
 /* ---------- Moments poster ---------- */
@@ -1139,7 +1228,7 @@ async function makePoster(){const c=document.createElement('canvas');c.width=600
   g.fillStyle='rgba(16,185,129,.25)';g.beginPath();g.arc(300,230,105,0,7);g.fill();
   if(tImg)g.drawImage(tImg,150,128,200,200);if(mImg)g.drawImage(mImg,350,170,170,170);
   g.fillStyle='#fff';g.font='bold 30px sans-serif';g.fillText(S.name,300,370);g.fillStyle='#fbbf24';g.font='bold 18px sans-serif';
-  g.fillText(`${SKINS[S.skin].name} • 🔥 ${S.streak}-day streak${ch?' • '+SPECIES[ch.sp].name+' Lv'+ch.lvl:''}`,300,400);
+  g.fillText(`${SKINS[S.skin].name} • 🔥 ${streak()}-day streak${ch?' • '+SPECIES[ch.sp].name+' Lv'+ch.lvl:''}`,300,400);
   const box=(x,y,v,l,col)=>{g.fillStyle='rgba(30,41,59,.9)';g.beginPath();g.roundRect(x,y,250,120,18);g.fill();g.fillStyle=col;g.font='bold 40px sans-serif';g.fillText(v,x+125,y+62);g.fillStyle='#94a3b8';g.font='16px sans-serif';g.fillText(l,x+125,y+95)};
   box(40,430,S.co2.toFixed(2)+' kg','CO₂ saved','#34d399');box(310,430,fmt(S.coins),'EcoCoins','#fbbf24');box(40,570,(S.meters/1000).toFixed(1)+' km','Green distance','#7dd3fc');box(310,570,S.squad.length+'','Ecomon caught','#c4b5fd');
   g.fillStyle='#fff';g.fillRect(60,730,120,120);g.fillStyle='#0f172a';for(let i=0;i<10;i++)for(let j=0;j<10;j++)if(Math.random()<.5||((i<3||i>6)&&(j<3||j>6)&&!(i%3==1&&j%3==1)))g.fillRect(66+i*10.8,736+j*10.8,10.8,10.8);
@@ -1150,6 +1239,7 @@ async function makePoster(){const c=document.createElement('canvas');c.width=600
 
 /* ---------- INIT ---------- */
 $('#spd').value=S.simSpeed;
+if(DEV){$('#acc-dev').style.display='';$('#gateSim').style.display=''}else{$('#gate .grid2').style.gridTemplateColumns='1fr'}
 hud();renderShop();renderArena();renderSquad();renderDev();renderSimUI();renderPlayer();renderHabitat();
 startMap().then(()=>{if(S.simGPS){S.simGPS=false;setSim(true)}else startGPS(false)});
 </script>
